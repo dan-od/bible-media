@@ -41,3 +41,6 @@ example
 # generated native folders
 /ios
 /android
+
+# Transient file Expo generates when reading app.config.ts
+app.config.js

@@ -1,0 +1,1592 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bible Feed App — Flow Prototype (throwaway)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Display&family=Libre+Caslon+Text:ital,wght@0,400;1,400&family=Hanken+Grotesk:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* ============================================================
+   REVIEW CHROME  —  not product UI. Deliberately different.
+   ============================================================ */
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{
+  background:#101010;color:#e7e5e1;
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:13px;line-height:1.45;
+  display:grid;grid-template-columns:276px 1fr 300px;grid-template-rows:100%;
+}
+button{font:inherit;color:inherit}
+a{color:inherit}
+.rv{background:#171716;border-right:1px solid #2a2a28;overflow-y:auto;padding:14px 14px 40px}
+.rv.right{border-right:0;border-left:1px solid #2a2a28}
+.rv h2{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#8d8a84;margin:20px 0 8px;font-weight:500}
+.rv h2:first-child{margin-top:0}
+.banner{background:#3a2d12;border:1px solid #6a5420;color:#f0dcae;padding:8px 10px;border-radius:4px;font-size:11px;line-height:1.5}
+.flow{margin-bottom:2px}
+.flow>summary{cursor:pointer;padding:6px 8px;border-radius:4px;color:#cfccc6;font-size:12px;list-style:none;display:flex;justify-content:space-between;gap:8px}
+.flow>summary::-webkit-details-marker{display:none}
+.flow>summary:hover{background:#201f1e}
+.flow>summary .n{color:#6f6c67}
+.scr{display:block;width:100%;text-align:left;background:none;border:0;padding:5px 8px 5px 18px;border-radius:4px;cursor:pointer;color:#a9a6a0;font-size:12px}
+.scr:hover{background:#201f1e;color:#e7e5e1}
+.scr[aria-current="true"]{background:#2d2b27;color:#fff;box-shadow:inset 2px 0 0 #c8a35e}
+.ctl{display:flex;flex-wrap:wrap;gap:6px}
+.ctl button{background:#201f1e;border:1px solid #333230;color:#bdbab4;padding:5px 9px;border-radius:999px;cursor:pointer;font-size:11px}
+.ctl button:hover{border-color:#5a5853;color:#fff}
+.ctl button[aria-pressed="true"]{background:#c8a35e;border-color:#c8a35e;color:#1a1408;font-weight:500}
+.ctl button[disabled]{opacity:.35;cursor:not-allowed}
+.row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 0;font-size:11px;color:#8d8a84}
+.stage{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:12px;overflow:auto;padding:22px 20px 40px;background:
+  linear-gradient(0deg,#0c0c0c,#0c0c0c) ,
+  repeating-linear-gradient(45deg,#0e0e0e 0 8px,#101010 8px 16px)}
+.crumb{font-size:11px;color:#7e7b76;display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;min-height:16px}
+.crumb b{color:#c8a35e;font-weight:500}
+.device{border:9px solid #242321;border-radius:42px;background:#000;box-shadow:0 24px 60px rgba(0,0,0,.6);flex:none;position:relative;overflow:hidden}
+.device.tablet{border-radius:26px;border-width:12px}
+.device.desktop{border-radius:10px;border-width:10px}
+#screen{display:block;border:0;background:transparent;overflow:hidden;position:relative}
+.anno{font-size:11px;color:#a9a6a0}
+.anno dt{color:#6f6c67;margin-top:8px;font-size:10px;letter-spacing:.12em;text-transform:uppercase}
+.anno dd{margin:2px 0 0}
+.badge{display:inline-block;padding:1px 6px;border-radius:3px;font-size:10px;letter-spacing:.06em;text-transform:uppercase;border:1px solid}
+.b-mock{color:#f0dcae;border-color:#6a5420;background:#2b2210}
+.b-unver{color:#f0c4ae;border-color:#6a3a20;background:#2b1a10}
+.b-sim{color:#c9d8e8;border-color:#3f5a70;background:#16222b}
+.b-na{color:#9a968f;border-color:#3a3a38;background:#1d1d1b}
+.note{width:100%;background:#0e0e0d;border:1px solid #333230;color:#e7e5e1;border-radius:4px;padding:8px;font:inherit;font-size:11px;min-height:64px;resize:vertical}
+.verdict{display:flex;gap:6px;margin-top:8px}
+.verdict button{flex:1;padding:8px 0;border-radius:4px;border:1px solid #333230;background:#201f1e;cursor:pointer;font-size:11px}
+.verdict button[data-v="approve"]:hover{border-color:#5f8f5f;color:#cfe8cf}
+.verdict button[data-v="revise"]:hover{border-color:#8f7f3f;color:#f0dcae}
+.verdict button[data-v="reject"]:hover{border-color:#8f5f5f;color:#e8cfcf}
+.verdict button[aria-pressed="true"]{background:#2d2b27;color:#fff;border-color:#c8a35e}
+#log{margin-top:8px;font-size:10px;color:#6f6c67;white-space:pre-wrap;max-height:160px;overflow:auto}
+.cov{width:100%;border-collapse:collapse;font-size:10px}
+.cov td{padding:3px 4px;border-bottom:1px solid #232220;vertical-align:top}
+.cov td:first-child{color:#8d8a84;white-space:nowrap}
+.kbd{position:fixed;left:50%;bottom:10px;transform:translateX(-50%);background:#c8a35e;color:#1a1408;padding:4px 10px;border-radius:999px;font-size:11px;display:none;z-index:40}
+body.kbdmode .kbd{display:block}
+body.kbdmode #screen :focus-visible{outline:3px solid #c8a35e;outline-offset:2px}
+@media (max-width:1100px){
+  body{grid-template-columns:1fr;grid-template-rows:auto 1fr auto;height:auto}
+  .rv{border:0;border-bottom:1px solid #2a2a28;max-height:38vh}
+  .rv.right{border-top:1px solid #2a2a28}
+}
+
+/* ============================================================
+   PRODUCT UI  —  Option A tokens. Swap this block to retheme.
+   ============================================================ */
+#screen{
+  --bg:#FFFFFF; --ink:#141413; --soft:#3A3936; --muted:#6B6862;
+  --hair:#E9E6E1; --raised:#F6F5F2; --gold:#8A6A2E; --onInk:#FFFFFF;
+  --scrim:rgba(20,20,19,.38); --sheet:#FFFFFF;
+  --serifD:'Libre Caslon Display','Libre Caslon Text',Georgia,serif;
+  --serifT:'Libre Caslon Text',Georgia,serif;
+  --sans:'Hanken Grotesk',system-ui,sans-serif;
+  --dur:260ms; --ease:cubic-bezier(.2,.8,.2,1);
+  background:var(--bg);color:var(--ink);font-family:var(--sans);
+}
+#screen[data-mode="dark"]{
+  --bg:#0E0E0D; --ink:#F2EFEA; --soft:#D3CFC8; --muted:#9A968F;
+  --hair:#262523; --raised:#171716; --gold:#C8A35E; --onInk:#0E0E0D;
+  --scrim:rgba(0,0,0,.55); --sheet:#161615;
+}
+body.reduced #screen *{animation:none!important;transition:none!important}
+@media (prefers-reduced-motion:reduce){#screen *{animation:none!important;transition:none!important}}
+#screen .app{height:100%;display:flex;flex-direction:column;position:relative;overflow:hidden}
+#screen button,#screen a{font-family:var(--sans)}
+#screen ::selection{background:var(--gold);color:var(--bg)}
+#screen :focus-visible{outline:1px solid var(--ink);outline-offset:3px}
+#screen .scroll{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch}
+#screen .scroll::-webkit-scrollbar{width:0}
+
+/* product atoms */
+.hd{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 24px 0;flex:none}
+.word{font-family:var(--serifD);font-size:28px;letter-spacing:-.01em}
+.ttabs{display:flex;gap:22px}
+.ttab{min-height:44px;padding:0;border:0;background:none;cursor:pointer;font-size:15px;font-weight:400;color:var(--muted)}
+.ttab[aria-selected="true"]{font-weight:600;color:var(--ink);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:8px}
+.caps{font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase}
+.vnum{font-size:11px;font-weight:600;margin-right:4px;vertical-align:.8em;font-family:var(--sans)}
+.prev{margin:0;font-family:var(--serifT);font-size:17px;line-height:1.55;color:var(--muted)}
+.vmain{margin:0;font-family:var(--serifD);font-size:34px;line-height:1.22;letter-spacing:-.012em;text-wrap:pretty}
+.ref{display:flex;align-items:baseline;gap:10px}
+.why{font-size:13px;line-height:1.4;color:var(--muted)}
+.tl{display:inline-flex;align-items:center;gap:6px;min-height:44px;text-decoration:none;font-size:14px;font-weight:500;color:var(--ink);background:none;border:0;padding:0;cursor:pointer}
+.rail{display:flex;flex-direction:column;gap:8px;align-items:center;flex:none}
+.ra{width:44px;height:44px;display:flex;align-items:center;justify-content:center;border:0;background:none;padding:0;color:var(--ink);cursor:pointer;border-radius:999px}
+.ra[aria-pressed="true"]{color:var(--gold)}
+.tb{display:flex;justify-content:space-around;padding:8px 10px 24px;border-top:1px solid var(--hair);background:var(--bg);flex:none}
+.tbi{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:56px;min-height:44px;justify-content:center;text-decoration:none;color:var(--muted);font-size:11px;font-weight:500;border:0;background:none;cursor:pointer}
+.tbi[aria-current="page"]{color:var(--ink);font-weight:600}
+.btn{display:flex;align-items:center;justify-content:center;min-height:52px;border-radius:999px;background:var(--ink);color:var(--onInk);text-decoration:none;font-size:15px;font-weight:600;border:0;cursor:pointer;width:100%}
+.btn.ghost{background:none;color:var(--ink);border:1px solid var(--hair)}
+.btn.sm{min-height:44px;font-size:14px;padding:0 20px;width:auto}
+.chip{min-height:44px;padding:0 16px;border-radius:999px;border:1px solid var(--hair);background:none;color:var(--ink);font-size:14px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--onInk);border-color:var(--ink)}
+.lrow{display:flex;align-items:center;gap:14px;padding:16px 0;border-top:1px solid var(--hair);background:none;border-left:0;border-right:0;border-bottom:0;width:100%;text-align:left;color:var(--ink);cursor:pointer}
+.lrow .g{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+.lrow .t{font-size:15px;font-weight:600}
+.lrow .s{font-size:13px;color:var(--muted)}
+.av{width:36px;height:36px;flex:none;border-radius:999px;border:1px solid var(--hair);background:var(--raised);display:flex;align-items:center;justify-content:center;font-family:var(--serifT);font-size:14px;color:var(--ink)}
+.sheet{position:absolute;left:0;right:0;bottom:0;box-sizing:border-box;padding:10px 24px 28px;border-radius:20px 20px 0 0;background:var(--sheet);box-shadow:0 -12px 40px rgba(0,0,0,.18);display:flex;flex-direction:column;max-height:88%;animation:up var(--dur) var(--ease)}
+@keyframes up{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.scrim{position:absolute;inset:0;background:var(--scrim);border:0;padding:0;animation:fade var(--dur) var(--ease)}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.grab{align-self:center;width:36px;height:4px;border-radius:999px;background:var(--hair);margin-bottom:14px;flex:none}
+.shhd{display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:10px;flex:none}
+.shhd h2{margin:0;font-family:var(--serifD);font-size:30px;font-weight:400;line-height:1.08;letter-spacing:-.015em}
+.x{width:44px;height:44px;margin:-6px -10px 0 0;border:0;background:none;color:var(--ink);display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none}
+.srow{display:flex;flex-direction:column;gap:7px;padding:14px 0;border-top:1px solid var(--hair)}
+.srow p{margin:0;font-size:15px;line-height:1.55}
+.ta{width:100%;border:1px solid var(--hair);border-radius:12px;background:var(--bg);color:var(--ink);font-family:var(--serifT);font-size:17px;line-height:1.5;padding:12px;min-height:120px;resize:none}
+.seg{display:flex;gap:4px;padding:4px;border-radius:999px;background:var(--raised)}
+.seg button{flex:1;min-height:44px;border:0;border-radius:999px;background:none;color:var(--muted);font-size:13px;font-weight:500;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--bg);color:var(--ink);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.err{font-size:13px;color:#B4232A;display:flex;align-items:center;gap:6px}
+#screen[data-mode="dark"] .err{color:#FF9A93}
+.sw{appearance:none;-webkit-appearance:none;width:50px;height:30px;border-radius:999px;background:var(--hair);position:relative;flex:none;cursor:pointer;transition:background 160ms var(--ease);margin:0}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:999px;background:var(--bg);box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform 160ms var(--ease)}
+.sw:checked{background:var(--ink)}
+.sw:checked::after{transform:translateX(20px)}
+.cb{appearance:none;-webkit-appearance:none;width:24px;height:24px;border-radius:6px;border:1px solid var(--muted);flex:none;cursor:pointer;position:relative;margin:0}
+.cb:checked{background:var(--ink);border-color:var(--ink)}
+.cb:checked::after{content:"";position:absolute;left:8px;top:3px;width:6px;height:12px;border:solid var(--onInk);border-width:0 2px 2px 0;transform:rotate(45deg)}
+.pill{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:var(--gold)}
+.mid{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:14px;padding:0 36px}
+.mid p{margin:0;color:var(--muted);font-size:15px;line-height:1.5}
+.mid h2{margin:0;font-family:var(--serifD);font-size:30px;font-weight:400;line-height:1.15}
+.sk{background:var(--hair);border-radius:4px;animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+.ios{position:absolute;inset:0;background:#0b0b0c;color:#fff;display:flex;flex-direction:column;align-items:center;padding:60px 18px 30px;font-family:var(--sans)}
+.lockwid{width:100%;border-radius:18px;background:rgba(255,255,255,.14);backdrop-filter:blur(8px);padding:14px 16px;color:#fff}
+.lockntf{width:100%;border-radius:18px;background:rgba(240,238,234,.92);color:#121212;padding:12px 14px;display:flex;gap:10px;align-items:flex-start}
+</style>
+</head>
+<body>
+
+<nav class="rv" aria-label="Prototype screens">
+  <div class="banner" id="banner">
+    <strong>PROTOTYPE — throwaway, read-only.</strong> No account, no network, no writes. Every interaction is a local mock. Fonts load from Google; offline they fall back to Georgia and the system sans.
+  </div>
+
+  <h2>Theme</h2>
+  <div class="ctl" id="themeCtl">
+    <button data-mode="light" aria-pressed="true">Light</button>
+    <button data-mode="dark" aria-pressed="false">Dark</button>
+  </div>
+
+  <h2>Viewport</h2>
+  <div class="ctl" id="vpCtl"></div>
+
+  <h2>Accessibility</h2>
+  <div class="ctl" id="a11yCtl">
+    <button data-a11y="kbd" aria-pressed="false">Keyboard mode</button>
+    <button data-a11y="reduced" aria-pressed="false">Reduced motion</button>
+  </div>
+
+  <h2>Flows</h2>
+  <div id="nav"></div>
+
+  <h2>State coverage</h2>
+  <table class="cov" id="cov"></table>
+</nav>
+
+<main class="stage">
+  <div class="crumb" id="crumb"></div>
+  <div class="device" id="device"><div id="screen" data-mode="light" tabindex="-1"></div></div>
+  <div class="crumb" id="hint"></div>
+</main>
+
+<aside class="rv right" aria-label="Review panel">
+  <h2>This screen</h2>
+  <div class="anno" id="meta"></div>
+
+  <h2>States</h2>
+  <div class="ctl" id="stateCtl"></div>
+
+  <h2>Branches from here</h2>
+  <div class="ctl" id="branchCtl"></div>
+
+  <h2>Transition &amp; feedback</h2>
+  <dl class="anno" id="trans"></dl>
+
+  <h2>Decision</h2>
+  <div class="verdict" id="verdict">
+    <button data-v="approve" aria-pressed="false">Approve</button>
+    <button data-v="revise" aria-pressed="false">Revise</button>
+    <button data-v="reject" aria-pressed="false">Reject</button>
+  </div>
+  <textarea class="note" id="noteBox" placeholder="Notes on this screen…" aria-label="Notes on this screen"></textarea>
+  <div class="ctl" style="margin-top:6px">
+    <button id="exportBtn">Copy all notes</button>
+    <button id="clearBtn">Clear</button>
+  </div>
+  <div id="log"></div>
+</aside>
+
+<div class="kbd" aria-hidden="true">Keyboard mode: Tab through the screen. Focus rings are forced visible.</div>
+<div id="live" aria-live="polite" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)"></div>
+
+<script>
+/* ============================================================
+   1. ICONS
+   ============================================================ */
+const IP={
+ star:'<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/>',
+ save:'<path d="M6.5 3.5h11v17l-5.5-3.8-5.5 3.8z"/>',
+ note:'<path d="M4.5 19.5h4l10-10-4-4-10 10z"/><path d="M13.5 6.5l4 4"/>',
+ repost:'<path d="M4.5 11V9.5a3 3 0 0 1 3-3h11"/><path d="M15.5 3.5l3 3-3 3"/><path d="M19.5 13v1.5a3 3 0 0 1-3 3h-11"/><path d="M8.5 20.5l-3-3 3-3"/>',
+ send:'<path d="M20.5 3.5L10 14"/><path d="M20.5 3.5l-6.5 17-4-6.5-6.5-4z"/>',
+ versions:'<path d="M12 3.5l8.5 4.5-8.5 4.5L3.5 8z"/><path d="M3.5 12.5l8.5 4.5 8.5-4.5"/>',
+ context:'<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5"/><path d="M12 7.6v.4"/>',
+ home:'<path d="M4 10.5l8-6.5 8 6.5v9.5h-5.5v-6h-5v6H4z"/>',
+ search:'<circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/>',
+ groups:'<circle cx="9" cy="8.5" r="3"/><path d="M3.5 19.5a5.5 5.5 0 0 1 11 0"/><circle cx="17" cy="9.5" r="2.3"/><path d="M15.8 14.6a4.5 4.5 0 0 1 4.7 4.9"/>',
+ msg:'<path d="M4.5 5.5h15v10h-10l-5 4z"/>',
+ me:'<circle cx="12" cy="8.5" r="3.8"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/>',
+ close:'<path d="M6.5 6.5l11 11"/><path d="M17.5 6.5l-11 11"/>',
+ check:'<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+ chev:'<path d="M9.5 6l6 6-6 6"/>',
+ back:'<path d="M14.5 6l-6 6 6 6"/>',
+ arrow:'<path d="M5 12h14"/><path d="M13 6l6 6-6 6"/>',
+ plus:'<path d="M12 5v14"/><path d="M5 12h14"/>',
+ mic:'<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 12a6.5 6.5 0 0 0 13 0"/><path d="M12 18.5V21"/>',
+ pray:'<path d="M12 3v7"/><path d="M8 21l2-8 2-3 2 3 2 8"/>',
+ book:'<path d="M4 5.5h7v14H4z"/><path d="M13 5.5h7v14h-7z"/>',
+ cog:'<circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M18.4 5.6l-1.8 1.8M7.4 16.6l-1.8 1.8"/>',
+ off:'<path d="M3 3l18 18"/><path d="M8.5 16.5a5 5 0 0 1 7 0"/><path d="M5 13a10 10 0 0 1 3-2"/><path d="M19 13a10 10 0 0 0-7-2.9"/><path d="M12 20h.01"/>',
+ warn:'<path d="M12 4l8.5 15H3.5z"/><path d="M12 10v4"/><path d="M12 16.5v.5"/>',
+ bell:'<path d="M6.5 10a5.5 5.5 0 0 1 11 0c0 4 1.5 5.5 1.5 5.5H5S6.5 14 6.5 10z"/><path d="M10 19a2 2 0 0 0 4 0"/>',
+ qr:'<rect x="3.5" y="3.5" width="6" height="6"/><rect x="14.5" y="3.5" width="6" height="6"/><rect x="3.5" y="14.5" width="6" height="6"/><path d="M14.5 14.5h3v3h3v3h-6z"/>',
+ cards:'<rect x="3" y="6" width="13" height="14" rx="2"/><path d="M7 3h11a2 2 0 0 1 2 2v11"/>',
+ clock:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3.5 2"/>',
+ heart:'<path d="M12 20s-7-4.4-7-9.3A3.9 3.9 0 0 1 12 8a3.9 3.9 0 0 1 7 2.7C19 15.6 12 20 12 20z"/>',
+ trash:'<path d="M4.5 7h15"/><path d="M9.5 7V4.5h5V7"/><path d="M6.5 7l1 13h9l1-13"/>'
+};
+const ic=(n,s=22,w=1.5,f='none')=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="${f}" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IP[n]||''}</svg>`;
+
+/* ============================================================
+   2. MOCK DATA  — fixed seed, no randomness anywhere
+   ============================================================ */
+const MOCK = {
+  user:{name:'You', initial:'D'},
+  situations:['New job','Courage'],
+  verse:{
+    ref:'Psalm 31:24', version:'King James Version', vn:24,
+    text:'Be of good courage, and he shall strengthen your heart, all ye that hope in the LORD.',
+    prevVn:23,
+    prev:'O love the LORD, all ye his saints: for the LORD preserveth the faithful, and plentifully rewardeth the proud doer.',
+    why:'Chosen for your new job, on courage',
+    versions:[
+      {id:'KJV', name:'King James Version', note:'Public domain', text:'Be of good courage, and he shall strengthen your heart, all ye that hope in the LORD.'},
+      {id:'BSB', name:'Berean Standard Bible', note:'Public domain', text:'Be strong and courageous, all you who hope in the LORD.'},
+      {id:'WEB', name:'World English Bible', note:'Public domain', text:'Be strong, and let your heart take courage, yes, all you who hope in Yahweh.'},
+      {id:'NIV', name:'New International Version', note:'Licensed — needs YouVersion', text:'[Licensed text is not shown in this prototype.]', locked:true}
+    ]
+  },
+  circle:{
+    friend:'Tobi', initial:'T', where:'Youth Group · reading John this month',
+    note:'[Tobi’s note on this passage appears here. Placeholder copy — real notes come from your circle.]',
+    ref:'John 15:5', vn:5, prevVn:4,
+    prev:'Abide in me, and I in you. As the branch cannot bear fruit of itself, except it abide in the vine; no more can ye, except ye abide in me.',
+    text:'I am the vine, ye are the branches: He that abideth in me, and I in him, the same bringeth forth much fruit: for without me ye can do nothing.',
+    comments:[
+      {who:'Ada', initial:'A', body:'[Comment placeholder — one of your circle replying to Tobi’s note.]'},
+      {who:'Dami', initial:'D', body:'[Comment placeholder.]'}
+    ]
+  },
+  searches:['worried about money','forgiveness','John 3'],
+  results:[
+    {ref:'Matthew 6:25–27', text:'Take no thought for your life, what ye shall eat…', tag:'Worry'},
+    {ref:'Philippians 4:6–7', text:'Be careful for nothing; but in every thing by prayer…', tag:'Worry'},
+    {ref:'Psalm 37:25', text:'I have been young, and now am old; yet have I not seen…', tag:'Provision'},
+    {ref:'1 Timothy 6:6–8', text:'But godliness with contentment is great gain.', tag:'Money'}
+  ],
+  groups:[
+    {id:'youth', name:'Youth Group', sub:'24 members · John, day 12 of 21', role:'Member'},
+    {id:'family', name:'The Daniels', sub:'5 members · Family group', role:'Leader', family:true}
+  ],
+  group:{
+    name:'Youth Group', members:24, leaders:'Pastor Dan and Ada',
+    book:'John 12', day:12, total:21,
+    threads:[
+      {q:'Why did Mary anoint Jesus’ feet with the ointment?', who:'Anonymous', n:6, badge:'Clarified by leader'},
+      {q:'What does “except a corn of wheat fall into the ground” mean?', who:'Dami', n:3, badge:null}
+    ],
+    replies:[
+      {who:'Pastor Dan', initial:'P', role:'Leader', body:'[Leader reply placeholder. In the real app this is the answer marked as clarified.]', marked:true},
+      {who:'Ada', initial:'A', role:'Co-leader', body:'[Reply placeholder.]', marked:false},
+      {who:'You', initial:'D', role:null, body:'[Your reply placeholder.]', marked:false}
+    ],
+    prayers:[
+      {who:'Anonymous', body:'[Prayer request placeholder — posted anonymously.]', prayed:5, mine:false, answered:false},
+      {who:'Ada', body:'[Prayer request placeholder.]', prayed:12, mine:false, answered:false},
+      {who:'You', body:'[Your prayer request placeholder.]', prayed:3, mine:true, answered:false}
+    ],
+    answered:[{who:'Dami', body:'[Answered prayer placeholder, with a short testimony.]', prayed:18}],
+    roster:[
+      {who:'Pastor Dan', initial:'P', role:'Leader'},
+      {who:'Ada', initial:'A', role:'Co-leader'},
+      {who:'Tobi', initial:'T', role:'Assistant'},
+      {who:'You', initial:'D', role:'Member'},
+      {who:'Dami', initial:'D', role:'Member'}
+    ]
+  },
+  family:{name:'The Daniels', verse:'Joshua 24:15', calling:'A family of evangelists', going:['Delays','A move']},
+  dms:[
+    {who:'Tobi', initial:'T', last:'Sent you Psalm 31:24', unread:true},
+    {who:'Ada', initial:'A', last:'Voice note · 0:24', unread:false}
+  ],
+  dm:[
+    {me:false, kind:'verse', ref:'Psalm 31:24', text:'Be of good courage, and he shall strengthen your heart…'},
+    {me:false, kind:'text', body:'[Message placeholder — thinking of you this week.]'},
+    {me:true, kind:'text', body:'[Your reply placeholder.]'}
+  ],
+  saved:[
+    {ref:'Psalm 31:24', text:'Be of good courage, and he shall strengthen…'},
+    {ref:'Joshua 1:9', text:'Have not I commanded thee? Be strong and of a good courage…'},
+    {ref:'Isaiah 40:31', text:'But they that wait upon the LORD shall renew their strength…'}
+  ],
+  journal:[
+    {ref:'Psalm 31:24', when:'Today', body:'[Your note placeholder.]', priv:true},
+    {ref:'John 15:5', when:'Monday', body:'[Your note placeholder — shared with your circle.]', priv:false}
+  ]
+};
+
+/* ============================================================
+   3. COMPONENT HELPERS
+   ============================================================ */
+let S = { mode:'light', screen:'ob-welcome', state:'normal', tab:'foryou', gtab:'reading',
+          starred:true, noteText:'', notePriv:false, vp:'phone', stack:[] };
+
+const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function hd(word, tabs){
+  const t = tabs ? `<div class="ttabs" role="tablist">${tabs.map(([id,lbl])=>
+    `<button class="ttab" role="tab" aria-selected="${S.tab===id}" data-act="tab:${id}">${lbl}</button>`).join('')}</div>` : '';
+  return `<header class="hd"><div class="word">${word}</div>${t}</header>`;
+}
+function navbar(title, backTo, right=''){
+  return `<header class="hd" style="padding:14px 16px 10px">
+    <button class="ra" data-act="go:${backTo}" aria-label="Back">${ic('back',22)}</button>
+    <div style="flex:1;font-size:16px;font-weight:600;text-align:center">${esc(title)}</div>
+    <div style="width:44px;display:flex;justify-content:flex-end">${right}</div></header>`;
+}
+const ACTIONS=[['star','Star'],['save','Save'],['note','Write a note'],['repost','Repost'],['send','Send to a friend'],['versions','Other versions'],['context','Context']];
+const RAIL_ACT={star:'toggle:star',save:'toast:Saved to your collection',note:'open:feed-note',repost:'toast:Reposted to your circle',send:'open:feed-send',versions:'open:feed-compare',context:'open:feed-context'};
+function rail(){
+  return `<div class="rail">${ACTIONS.map(([k,lbl])=>{
+    const on = k==='star' && S.starred;
+    return `<button class="ra" aria-label="${lbl}" aria-pressed="${k==='star'?on:'false'}" data-act="${RAIL_ACT[k]}">${ic(k,23,1.4,on?'currentColor':'none')}</button>`;
+  }).join('')}</div>`;
+}
+const TABS=[['home','Feed','feed'],['search','Search','search'],['groups','Groups','groups'],['msg','Messages','messages'],['me','You','you']];
+function tabbar(cur){
+  return `<nav class="tb" aria-label="Main">${TABS.map(([i,lbl,scr])=>
+    `<button class="tbi" data-act="go:${scr}" ${cur===scr?'aria-current="page"':''}>${ic(i,22,cur===scr?1.7:1.4)}<span>${lbl}</span></button>`).join('')}</nav>`;
+}
+function verseBlock(v,{big=34,prev=true}={}){
+  return `${prev?`<p class="prev"><sup class="vnum" style="color:var(--muted)">${v.prevVn}</sup>${esc(v.prev)}</p>`:''}
+    <p class="vmain" style="font-size:${big}px"><sup class="vnum">${v.vn}</sup>${esc(v.text)}</p>`;
+}
+function refLine(ref,version){
+  return `<div style="display:flex;flex-direction:column;gap:9px">
+    <div class="ref"><span class="caps">${esc(ref)}</span><span style="font-size:12px;color:var(--muted)">${esc(version)}</span></div>
+    <span class="why">${esc(MOCK.verse.why)}</span></div>`;
+}
+function sheet(title, body, foot=''){
+  return `<button class="scrim" data-act="close" aria-label="Close"></button>
+  <div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(title)}" data-sheet>
+    <span class="grab" aria-hidden="true"></span>
+    <div class="shhd"><h2>${esc(title)}</h2><button class="x" data-act="close" aria-label="Close">${ic('close',20)}</button></div>
+    <div class="scroll" style="margin:0 -24px;padding:0 24px">${body}</div>${foot?`<div style="padding-top:14px;flex:none">${foot}</div>`:''}</div>`;
+}
+function skeletonFeed(){
+  return `<div style="display:flex;flex-direction:column;gap:14px" aria-busy="true" aria-label="Loading your feed">
+    <div class="sk" style="height:14px;width:70%"></div><div class="sk" style="height:14px;width:55%"></div>
+    <div class="sk" style="height:38px;width:100%;margin-top:10px"></div><div class="sk" style="height:38px;width:92%"></div>
+    <div class="sk" style="height:38px;width:76%"></div><div class="sk" style="height:12px;width:40%;margin-top:14px"></div></div>`;
+}
+function offlineBar(){
+  return `<div style="display:flex;align-items:center;gap:8px;padding:8px 24px;background:var(--raised);color:var(--soft);font-size:12px;flex:none">
+    ${ic('off',15)}<span>Offline — showing your downloaded translation. Notes will send when you reconnect.</span></div>`;
+}
+function toastHTML(){
+  return S.toast?`<div style="position:absolute;left:24px;right:24px;bottom:96px;background:var(--ink);color:var(--onInk);border-radius:12px;padding:12px 14px;font-size:14px;font-weight:500;animation:up var(--dur) var(--ease)" role="status">${esc(S.toast)}</div>`:'';
+}
+</script>
+<script>
+/* ============================================================
+   4. SCREENS — part A: onboarding, daily reading, circle
+   ============================================================ */
+const SCREENS = {};
+const def = (id,o) => { SCREENS[id] = Object.assign({flow:'Misc',states:['normal'],branches:[]},o); };
+
+/* ---------- FLOW 1: Onboarding ---------- */
+const HEART = ['Grief','Anxiety','New job','A breakup','Purpose','Discipline','Faith doubts','Money','Loneliness','Thankful'];
+
+def('ob-welcome',{flow:'1 · Onboarding',name:'Welcome',
+  goal:'Say what the app is in one breath and start without an account.',
+  container:'Page — first run, nothing to retain.',
+  motion:'Trigger: Get started · Target: whole page · 260ms · ease-out · Enter: slide in from right + fade · Exit: slide left · Interruption: reverse on back · Reduced motion: instant swap.',
+  haptic:'none — ordinary navigation.',
+  mocks:['No account is created. Nothing is stored anywhere.'],
+  a11y:'H1 is the product name. The verse is decorative context, not a heading.',
+  branches:[['Get started','go:ob-heart'],['Skip to feed','go:feed']],
+  render(){return `
+    <div class="scroll" style="display:flex;flex-direction:column;padding:0 28px">
+      <div class="mid" style="padding:0">
+        <h1 style="margin:0;font-family:var(--serifD);font-size:44px;font-weight:400;letter-spacing:-.02em">Lamp</h1>
+        <p style="max-width:280px">Scripture that meets you where you are, shared only with people you know.</p>
+        <p class="prev" style="font-size:15px;max-width:280px;font-style:italic">“Thy word is a lamp unto my feet, and a light unto my path.” Psalm 119:105</p>
+      </div>
+    </div>
+    <div style="padding:0 28px 18px;display:flex;flex-direction:column;gap:10px;flex:none">
+      <button class="btn" data-act="go:ob-heart">Get started</button>
+      <button class="btn ghost" data-act="go:ob-join">I have a group invite</button>
+    </div>`}});
+
+def('ob-heart',{flow:'1 · Onboarding',name:'What’s on your heart',states:['normal','validation'],
+  goal:'Capture life situation in taps, with free text as the escape hatch.',
+  container:'Page — step 1 of 5, each step is one focal task.',
+  motion:'Trigger: chip tap · Target: chip · 120ms · ease-out · Enter: background and text colour cross-fade, no size change so the row never reflows · Reduced motion: instant.',
+  haptic:'selection on each chip — a discrete pick.',
+  mocks:['Free text is matched to themes by the same tag index as search. No AI call.'],
+  a11y:'Chips are real buttons with aria-pressed. The text field has a visible label.',
+  branches:[['Continue','go:ob-level'],['Skip this step','go:ob-level'],['Show validation hint','state:validation']],
+  render(){const v=S.state==='validation';return `
+    <div class="scroll" style="padding:28px 24px 0;display:flex;flex-direction:column;gap:18px">
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <span class="caps" style="color:var(--muted)">Step 1 of 5</span>
+        <h1 style="margin:0;font-family:var(--serifD);font-size:32px;font-weight:400;line-height:1.1">What’s on your heart right now?</h1>
+        <p class="why">Tap as many as fit. You can change these any time.</p>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">${HEART.map(h=>
+        `<button class="chip" aria-pressed="${MOCK.situations.includes(h)}" data-act="toggle:sit:${h}">${h}</button>`).join('')}</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <label class="caps" style="color:var(--muted)" for="ownwords">Or say it your own way</label>
+        <textarea class="ta" id="ownwords" style="min-height:84px;font-size:16px" placeholder="e.g. I just moved city and I don’t know anyone"></textarea>
+        ${v?`<span class="err">${ic('warn',15)} Pick at least one, or type a few words, so your feed has somewhere to start.</span>`:''}
+      </div>
+    </div>
+    <div style="padding:14px 24px 18px;display:flex;gap:10px;flex:none">
+      <button class="btn ghost sm" data-act="go:ob-level" style="flex:1">Skip</button>
+      <button class="btn" data-act="go:ob-level" style="flex:2">Continue</button>
+    </div>`}});
+
+def('ob-level',{flow:'1 · Onboarding',name:'Bible level',
+  goal:'Set the difficulty ceiling in one tap.',
+  container:'Page — one focal choice.',
+  motion:'Trigger: option tap · Target: option row · 160ms · ease-out · Enter: 1px border thickens to 2px and tick fades in · Reduced motion: tick appears with no fade.',
+  haptic:'selection.',
+  mocks:['Level only changes which books the feed draws from. Nothing is locked.'],
+  a11y:'Radio semantics via a radiogroup; arrow keys move between options.',
+  branches:[['Continue','go:ob-translation']],
+  render(){const opts=[['Just starting','Gospels, Psalms and Proverbs first, with context cards on by default'],
+    ['Growing','A wider mix, with the harder books introduced as you go'],
+    ['Been reading for years','Everything, including the prophets and the letters']];
+  return `
+    <div class="scroll" style="padding:28px 24px 0;display:flex;flex-direction:column;gap:18px">
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <span class="caps" style="color:var(--muted)">Step 2 of 5</span>
+        <h1 style="margin:0;font-family:var(--serifD);font-size:32px;font-weight:400;line-height:1.1">Where are you with the Bible?</h1>
+      </div>
+      <div role="radiogroup" aria-label="Bible level" style="display:flex;flex-direction:column;gap:10px">
+        ${opts.map(([t,s],i)=>`<button role="radio" aria-checked="${i===1}" data-act="noop" style="display:flex;gap:12px;align-items:flex-start;text-align:left;padding:16px;border-radius:16px;border:${i===1?'2px':'1px'} solid ${i===1?'var(--ink)':'var(--hair)'};background:none;color:var(--ink);cursor:pointer">
+          <span style="flex:1;display:flex;flex-direction:column;gap:4px"><span style="font-size:16px;font-weight:600">${t}</span><span class="why">${s}</span></span>
+          ${i===1?`<span style="color:var(--ink)">${ic('check',20,2)}</span>`:''}</button>`).join('')}
+      </div>
+    </div>
+    <div style="padding:14px 24px 18px;flex:none"><button class="btn" data-act="go:ob-translation">Continue</button></div>`}});
+
+def('ob-translation',{flow:'1 · Onboarding',name:'Pick a translation',
+  goal:'Set the default translation without ever using the word "translation" as a question.',
+  container:'Page — the choice is the content.',
+  motion:'Trigger: card tap · Target: card · 160ms · ease-out · border thickens, no movement.',
+  haptic:'selection.',
+  mocks:['Only public-domain texts are real here. Licensed versions are listed but inert.'],
+  a11y:'Each card names its version in the accessible name, not only visually.',
+  branches:[['Continue','go:ob-tune']],
+  render(){return `
+    <div class="scroll" style="padding:28px 24px 0;display:flex;flex-direction:column;gap:18px">
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <span class="caps" style="color:var(--muted)">Step 3 of 5</span>
+        <h1 style="margin:0;font-family:var(--serifD);font-size:32px;font-weight:400;line-height:1.1">Which one speaks to you?</h1>
+        <p class="why">Same verse, three ways. You can read any verse in the others later.</p>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        ${MOCK.verse.versions.filter(v=>!v.locked).map((v,i)=>`
+          <button data-act="noop" aria-label="Choose ${v.name}" style="text-align:left;padding:18px;border-radius:16px;border:${i===0?'2px':'1px'} solid ${i===0?'var(--ink)':'var(--hair)'};background:none;color:var(--ink);cursor:pointer;display:flex;flex-direction:column;gap:10px">
+            <p style="margin:0;font-family:var(--serifT);font-size:18px;line-height:1.45">${esc(v.text)}</p>
+            <span class="caps" style="color:var(--muted)">${v.id} · ${v.note}</span></button>`).join('')}
+      </div>
+    </div>
+    <div style="padding:14px 24px 18px;flex:none"><button class="btn" data-act="go:ob-tune">Continue</button></div>`}});
+
+def('ob-tune',{flow:'1 · Onboarding',name:'Swipe to tune',
+  goal:'Learn themes and level from behaviour instead of more questions.',
+  container:'Page — a stack of cards, 8 to 10 in the real app.',
+  motion:'Trigger: swipe or button · Target: top card · 300ms · ease-out · Exit: card translates 30% in the swipe direction and fades; the next card scales 0.96 to 1 · Interruption: a second swipe retargets rather than queueing · Reduced motion: card cross-fades in place, no travel.',
+  haptic:'light on each decision.',
+  mocks:['3 of 9 shown. The deck is a fixed list, not a recommender.'],
+  a11y:'Swipe is never the only way: both buttons do the same job and are in the tab order.',
+  branches:[['Continue','go:ob-notify']],
+  render(){return `
+    <div class="scroll" style="padding:24px 24px 0;display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span class="caps" style="color:var(--muted)">Step 4 of 5</span>
+        <span class="caps" style="color:var(--muted)">3 of 9</span>
+      </div>
+      <p class="why" style="margin:0">Swipe right on what speaks to you, left on what doesn’t. This shapes your feed.</p>
+      <div style="position:relative;height:300px">
+        <div style="position:absolute;inset:14px 6px 0;border-radius:18px;border:1px solid var(--hair);opacity:.5"></div>
+        <div style="position:absolute;inset:7px 3px 0;border-radius:18px;border:1px solid var(--hair);opacity:.75"></div>
+        <div style="position:absolute;inset:0;border-radius:18px;border:1px solid var(--hair);background:var(--bg);padding:22px;display:flex;flex-direction:column;gap:14px;justify-content:center">
+          <p style="margin:0;font-family:var(--serifD);font-size:26px;line-height:1.25">Cast thy burden upon the LORD, and he shall sustain thee.</p>
+          <span class="caps" style="color:var(--muted)">Psalm 55:22</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn ghost" data-act="toast:Not now — noted" style="flex:1">Not now</button>
+        <button class="btn" data-act="toast:Added to your themes" style="flex:1">This speaks to me</button>
+      </div>
+    </div>
+    <div style="padding:14px 24px 18px;flex:none"><button class="tl" data-act="go:ob-notify">Skip the rest${ic('arrow',15)}</button></div>`}});
+
+def('ob-notify',{flow:'1 · Onboarding',name:'Notification permission',states:['normal','denied'],
+  goal:'Ask for the word of the day without a cold system prompt.',
+  container:'Page, then the OS sheet. We ask first so a "no" is cheap to recover from.',
+  motion:'Trigger: Turn on · Target: OS prompt · system owned, not ours · Reduced motion: unchanged.',
+  haptic:'none before, success once granted.',
+  mocks:['The OS prompt is drawn, not real. On a free Apple developer account the daily verse works as a local notification; friend and group pushes need the paid account.'],
+  a11y:'The denied state keeps a visible route to Settings; it is not a dead end.',
+  branches:[['Turn on','go:ob-done'],['Not now','go:ob-done'],['Show denied','state:denied']],
+  render(){const d=S.state==='denied';return `
+    <div class="scroll" style="padding:28px 24px 0;display:flex;flex-direction:column;gap:18px">
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <span class="caps" style="color:var(--muted)">Step 5 of 5</span>
+        <h1 style="margin:0;font-family:var(--serifD);font-size:32px;font-weight:400;line-height:1.1">A verse each morning?</h1>
+        <p class="why">One notification a day, on your lock screen. Nothing else, and no badges.</p>
+      </div>
+      <div style="border-radius:16px;border:1px solid var(--hair);padding:16px;display:flex;gap:12px;align-items:flex-start">
+        <span style="color:var(--gold)">${ic('bell',20)}</span>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <span style="font-size:15px;font-weight:600">7:00 am · Psalm 31:24</span>
+          <span class="why">Be of good courage, and he shall strengthen your heart…</span></div>
+      </div>
+      ${d?`<div style="border-radius:16px;border:1px solid var(--hair);padding:16px;display:flex;flex-direction:column;gap:10px">
+        <span class="err">${ic('warn',15)} Notifications are off for Lamp.</span>
+        <p class="why" style="margin:0">You can still read your feed, and the home-screen widget keeps working. Turn notifications on in iOS Settings whenever you want the morning verse.</p>
+        <button class="btn ghost sm" data-act="toast:Opens iOS Settings in the real app" style="align-self:flex-start">Open Settings</button></div>`:''}
+    </div>
+    <div style="padding:14px 24px 18px;display:flex;flex-direction:column;gap:10px;flex:none">
+      <button class="btn" data-act="go:ob-done">Turn on the morning verse</button>
+      <button class="tl" data-act="go:ob-done" style="align-self:center">Not now</button>
+    </div>`}});
+
+def('ob-done',{flow:'1 · Onboarding',name:'Ready',
+  goal:'Close the loop and hand over to the feed.',
+  container:'Page.',
+  motion:'Trigger: Open my feed · Target: whole page · 320ms · ease-out · Enter: feed fades up 12px while onboarding fades out; the tab bar slides up last · Reduced motion: instant.',
+  haptic:'success — a meaningful goal completed.',
+  mocks:['Nothing was saved. Re-running onboarding resets to the same fixed answers.'],
+  a11y:'Focus moves to the feed heading on arrival, announced via the live region.',
+  branches:[['Open my feed','go:feed']],
+  render(){return `
+    <div class="mid">
+      <span style="color:var(--gold)">${ic('check',40,1.6)}</span>
+      <h2>Your feed is ready</h2>
+      <p>Courage and a new job, beginner-friendly, King James. Change any of it in <strong style="color:var(--ink);font-weight:600">You › Settings</strong>.</p>
+    </div>
+    <div style="padding:0 28px 22px;flex:none"><button class="btn" data-act="go:feed">Open my feed</button></div>`}});
+
+def('ob-join',{flow:'1 · Onboarding',name:'Join from invite',states:['normal','expiry'],
+  goal:'Arrive through a group link and inherit the group’s reading plan.',
+  container:'Page — a deep link entry point.',
+  motion:'Trigger: Join · Target: page · 260ms slide · Reduced motion: instant.',
+  haptic:'medium on joining — a deliberate commitment.',
+  mocks:['The invite is a fixed token. Real invite links expire after 24 hours or one use.'],
+  a11y:'The leaderboard disclosure is text, not a tooltip, so a screen reader reaches it.',
+  branches:[['Join the group','go:ob-heart'],['Show expired link','state:expiry']],
+  render(){const x=S.state==='expiry';return `
+    ${navbar('Group invite','ob-welcome')}
+    <div class="scroll" style="padding:10px 24px 0;display:flex;flex-direction:column;gap:18px">
+      ${x?`<div style="border-radius:16px;border:1px solid var(--hair);padding:18px;display:flex;flex-direction:column;gap:10px">
+        <span class="err">${ic('warn',16)} This invite link has expired.</span>
+        <p class="why" style="margin:0">Invite links last 24 hours or one use, so a link that gets posted publicly stops working. Ask the group for a fresh one.</p>
+        <button class="btn ghost sm" data-act="go:ob-welcome" style="align-self:flex-start">Start without a group</button></div>`
+      :`<div style="display:flex;flex-direction:column;gap:14px">
+        <h1 style="margin:0;font-family:var(--serifD);font-size:32px;font-weight:400;line-height:1.1">Pastor Dan invited you to Youth Group</h1>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div class="srow" style="border-top:0;padding-top:0"><span class="caps" style="color:var(--muted)">Reading now</span><p>John, a chapter a day. Day 12 of 21.</p></div>
+          <div class="srow"><span class="caps" style="color:var(--muted)">Members</span><p>24, led by Pastor Dan and Ada.</p></div>
+          <div class="srow"><span class="caps" style="color:var(--muted)">Leaderboard</span><p>Off. The leaders have not turned on ranking for this group.</p></div>
+        </div></div>`}
+    </div>
+    ${x?'':`<div style="padding:14px 24px 18px;display:flex;flex-direction:column;gap:10px;flex:none">
+      <button class="btn" data-act="go:ob-heart">Join the group</button>
+      <button class="tl" data-act="go:ob-welcome" style="align-self:center">Not now</button></div>`}`}});
+
+/* ---------- FLOW 2: Daily reading ---------- */
+function feedBody(){
+  if(S.state==='loading') return `<main class="scroll" style="padding:24px 24px 0">${skeletonFeed()}</main>`;
+  if(S.state==='error') return `
+    <main class="scroll" style="padding:0">
+      <div class="mid"><span style="color:var(--muted)">${ic('warn',34,1.4)}</span>
+        <h2>We couldn’t load today’s feed</h2>
+        <p>Your saved verses and notes are still here. This is usually a connection problem.</p>
+        <div style="display:flex;gap:10px"><button class="btn sm" data-act="state:normal">Try again</button>
+        <button class="btn ghost sm" data-act="go:you-saved">Open saved verses</button></div>
+      </div></main>`;
+  const v=MOCK.verse;
+  return `<main class="scroll" style="padding:0 12px 0 24px;display:flex;align-items:flex-end;gap:14px">
+      <section style="flex:1;min-width:0;display:flex;flex-direction:column;gap:20px;padding:26px 0 20px">
+        ${verseBlock(v)}
+        ${refLine(v.ref, S.state==='offline'?'King James Version · downloaded':v.version)}
+        <div style="border-top:1px solid var(--hair);padding-top:2px"><button class="tl" data-act="open:feed-context">Read Psalm 31${ic('arrow',15)}</button></div>
+      </section>${rail()}
+    </main>`;
+}
+def('feed',{flow:'2 · Daily reading',name:'Feed — For you',states:['normal','loading','offline','error','empty'],
+  goal:'Read today’s passage and act on it without leaving the screen.',
+  container:'Page. Actions are a rail, not a sheet, so nothing covers the verse.',
+  motion:'Trigger: vertical swipe · Target: passage block · 320ms · ease-out · Enter: next passage rises 16px and fades in while the current one fades out; the previous verse line fades first so the eye lands on the main verse · Interruption: a fast second swipe retargets to the newest card · Reduced motion: cross-fade, no travel.',
+  haptic:'none for scrolling. light on star. selection when the version changes.',
+  mocks:['One fixed passage. No feed algorithm runs.','"empty" is N/A for the real feed: the public-domain text ships with the app, so there is always something to show. It is kept here only to prove the shape if every filter excluded everything.'],
+  a11y:'The passage is one reading block, so a screen reader reads verse 23 then 24 without the action rail interrupting. The rail follows in the tab order.',
+  branches:[['Star','toggle:star'],['Other versions','open:feed-compare'],['Context','open:feed-context'],['Write a note','open:feed-note'],['Send to a friend','open:feed-send'],['End of today','go:feed-done'],['Circle tab','tab:circle']],
+  render(){
+    if(S.state==='empty') return `${hd('Lamp',[['foryou','For you'],['circle','Circle']])}
+      <div class="mid"><span style="color:var(--muted)">${ic('book',34,1.4)}</span><h2>Nothing matches those filters</h2>
+      <p>Your situations are narrowed so far that no passage fits. Widen them and the feed fills up again.</p>
+      <button class="btn sm" data-act="go:you-situations">Edit what I’m going through</button></div>${tabbar('feed')}`;
+    return `${hd('Lamp',[['foryou','For you'],['circle','Circle']])}
+      ${S.state==='offline'?offlineBar():''}${feedBody()}${toastHTML()}${tabbar('feed')}`}});
+
+/* An overlay sits on whichever tab opened it, so Circle never flips to For you. */
+function baseShell(){
+  const from = S.stack[0]==='circle' ? 'circle' : 'feed';
+  S.tab = from==='circle' ? 'circle' : 'foryou';
+  return `${hd('Lamp',[['foryou','For you'],['circle','Circle']])}${from==='circle'?circleBody():feedBody()}${tabbar('feed')}`;
+}
+def('feed-compare',{flow:'2 · Daily reading',name:'Compare versions',base:'feed',
+  goal:'See the same verse in every available version, and be honest about which are licensed.',
+  container:'Sheet — a short reference task, thumb reach, and the verse stays in mind. Dismiss by scrim, X, Escape or swipe down; focus returns to the Other versions button.',
+  motion:'Trigger: Other versions, or a left swipe on the verse · Target: sheet · 260ms · ease-out · Enter: translate from 100% to 0 with the scrim fading to 38% · Exit: reverse, 200ms · Interruption: a drag mid-animation takes over the position · Reduced motion: sheet appears with no travel, scrim still fades.',
+  haptic:'selection when a version is picked.',
+  mocks:['Public-domain texts are real. The NIV row is deliberately inert to show the licensing boundary.'],
+  a11y:'role=dialog, aria-modal, focus trapped, Escape closes, focus restored to the trigger.',
+  branches:[['Close','close'],['Context instead','open:feed-context']],
+  render(){const rows=MOCK.verse.versions.map((v,i)=>`
+      <button data-act="${v.locked?'toast:Needs a YouVersion licence — not in the prototype':'close'}" ${v.locked?'aria-disabled="true"':''}
+        style="width:100%;text-align:left;border:0;border-top:1px solid var(--hair);background:none;color:var(--ink);padding:16px 0;cursor:pointer;display:flex;flex-direction:column;gap:8px;opacity:${v.locked?'.5':'1'}">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px">
+          <span class="caps">${v.id}${i===0?' · current':''}</span>
+          <span style="font-size:12px;color:var(--muted)">${v.note}</span></div>
+        <p style="margin:0;font-family:var(--serifT);font-size:17px;line-height:1.5">${esc(v.text)}</p></button>`).join('');
+    return `${baseShell()}
+      ${sheet('Psalm 31:24', rows, `<p class="why" style="margin:0">Licensed versions arrive through YouVersion Platform, free for approved apps.</p>`)}`}});
+
+def('feed-context',{flow:'2 · Daily reading',name:'Context card',base:'feed',
+  goal:'Answer who, where and when without leaving the verse.',
+  container:'Sheet — reference material, read then dismissed.',
+  motion:'Same as Compare: 260ms sheet rise, scrim fade. The Read all button is pinned, so the sheet scrolls under it.',
+  haptic:'none — this is reading, not deciding.',
+  mocks:['Static text. In the real app this comes from a tagged reference set, reviewed by a person, with no AI at launch.'],
+  a11y:'Each fact is a labelled group so a screen reader hears the label then the fact.',
+  branches:[['Close','close'],['Other versions','open:feed-compare']],
+  render(){const row=(h,b)=>`<div class="srow"><span class="caps" style="color:var(--muted)">${h}</span><p>${b}</p></div>`;
+    const body = row('Who is speaking','David, according to the psalm’s heading: “A Psalm of David.”')
+      + row('Who it is for','“All ye that hope in the LORD” — anyone trusting God through a hard season.')
+      + row('How it moves','From distress in verses 9–13, to trust in verse 14, “But I trusted in thee,” to this closing encouragement.')
+      + row('Jesus quotes it','Verse 5, “Into thine hand I commit my spirit,” is among His words on the cross (Luke 23:46).')
+      + `<div class="srow"><span class="caps" style="color:var(--muted)">Read alongside</span>
+         <div style="display:flex;gap:22px"><button class="tl" data-act="toast:Opens Joshua 1:9">Joshua 1:9${ic('arrow',15)}</button><button class="tl" data-act="toast:Opens Isaiah 40:31">Isaiah 40:31${ic('arrow',15)}</button></div></div>`;
+    return `${baseShell()}
+      ${sheet('Psalm 31', body, `<button class="btn" data-act="close">Read all of Psalm 31</button>`)}`}});
+
+def('feed-note',{flow:'2 · Daily reading',name:'Write a note',base:'feed',states:['normal','validation'],
+  goal:'Write a reflection and choose who sees it, with private as the safe default.',
+  container:'Sheet with the keyboard — short composition, and the verse stays visible above.',
+  motion:'Trigger: Write a note · Target: sheet · 260ms rise, then the field takes focus after the motion settles so the keyboard does not fight the animation · Reduced motion: no rise, focus immediately.',
+  haptic:'light on Save. warning if validation fails.',
+  mocks:['Saving does nothing. Nothing leaves the browser.','Group growth points need a note of at least 2 sentences; that rule is shown here but not enforced.'],
+  a11y:'The visibility control is a labelled segmented control with aria-pressed, not an unlabelled icon toggle.',
+  branches:[['Save','close'],['Show validation','state:validation'],['Cancel','close']],
+  render(){const v=S.state==='validation';
+    const body = `<div style="display:flex;flex-direction:column;gap:14px;padding-bottom:4px">
+      <p class="prev" style="font-size:15px">${esc(MOCK.verse.text)}</p>
+      <label class="caps" style="color:var(--muted)" for="notebody">Your note</label>
+      <textarea class="ta" id="notebody" placeholder="What is this saying to you?"></textarea>
+      ${v?`<span class="err">${ic('warn',15)} Add a little more and this counts toward your group reflections.</span>`:''}
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <span class="caps" style="color:var(--muted)">Who can see it</span>
+        <div class="seg"><button aria-pressed="true">Private to me</button><button aria-pressed="false">My circle</button></div>
+        <p class="why" style="margin:0">Private notes still count toward your group reflections. The words stay yours.</p>
+      </div></div>`;
+    return `${baseShell()}
+      ${sheet('Note on Psalm 31:24', body, `<div style="display:flex;gap:10px"><button class="btn ghost sm" data-act="close" style="flex:1">Cancel</button><button class="btn" data-act="close" style="flex:2">Save note</button></div>`)}`}});
+
+def('feed-send',{flow:'2 · Daily reading',name:'Send to a friend',base:'feed',
+  goal:'Send a verse to someone in the circle, with an optional line.',
+  container:'Sheet — a short pick-and-send task.',
+  motion:'Trigger: Send · Target: sheet · 260ms rise. On send the sheet drops and a toast confirms, so there is no success page to dismiss.',
+  haptic:'success on send.',
+  mocks:['No message is sent. The recipient list is two fixed people.'],
+  a11y:'Recipient rows are buttons with the person’s name in the accessible name.',
+  branches:[['Send','close'],['Close','close']],
+  render(){const body=`<div style="display:flex;flex-direction:column;gap:6px">
+      <p class="prev" style="font-size:15px">${esc(MOCK.verse.text)}</p>
+      ${MOCK.dms.map(d=>`<button class="lrow" data-act="toast:Sent to ${d.who}"><span class="av">${d.initial}</span>
+        <span class="g"><span class="t">${d.who}</span><span class="s">In your circle</span></span>
+        <span style="color:var(--muted)">${ic('send',18)}</span></button>`).join('')}
+      <label class="caps" style="color:var(--muted);margin-top:8px" for="sendmsg">Add a line</label>
+      <textarea class="ta" id="sendmsg" style="min-height:80px" placeholder="Thinking of you this week"></textarea></div>`;
+    return `${baseShell()}
+      ${sheet('Send Psalm 31:24', body)}`}});
+
+def('feed-done',{flow:'2 · Daily reading',name:'Done for today',
+  goal:'Close the day on purpose, and let anyone who wants more carry on.',
+  container:'Page — it replaces the last card rather than blocking it, so it is never a wall.',
+  motion:'Trigger: swipe past the last passage · Target: page · 400ms · ease-out · Enter: the mark fades and scales 0.94 to 1; the two buttons fade in 80ms later so Keep going is never missed · Reduced motion: everything appears at once.',
+  haptic:'success once, on arrival.',
+  mocks:['No count is stored. Nothing is shown like "4 of 12" anywhere, by design.'],
+  a11y:'Arrival is announced in the live region, and focus moves to the heading.',
+  branches:[['Keep going','go:feed'],['Open my notes','go:you-journal']],
+  render(){return `${hd('Lamp',[['foryou','For you'],['circle','Circle']])}
+    <div class="mid">
+      <span style="color:var(--gold)">${ic('check',38,1.5)}</span>
+      <h2>That’s today’s reading</h2>
+      <p>Go live it out. Your circle’s notes will be here tomorrow.</p>
+      <div style="display:flex;flex-direction:column;gap:10px;width:100%;max-width:260px">
+        <button class="btn" data-act="go:feed">Keep going</button>
+        <button class="btn ghost" data-act="go:you-journal">Open my notes</button></div>
+    </div>${tabbar('feed')}`}});
+
+/* ---------- FLOW 3: Circle ---------- */
+function circleBody(){
+  if(S.state==='empty') return `<div class="mid"><span style="color:var(--muted)">${ic('groups',34,1.4)}</span>
+    <h2>Your circle is empty</h2><p>Add someone you actually know. Scan their code when you’re together, or share an invite link.</p>
+    <button class="btn sm" data-act="go:connect">Add someone</button></div>`;
+  const c=MOCK.circle;
+  return `<main class="scroll" style="padding:0 12px 0 24px;display:flex;align-items:flex-end;gap:14px">
+    <section style="flex:1;min-width:0;display:flex;flex-direction:column;gap:16px;padding:22px 0 20px">
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <span class="av">${c.initial}</span>
+          <div style="display:flex;flex-direction:column;gap:1px">
+            <span style="font-size:15px;font-weight:600">${c.friend}</span>
+            <span class="s" style="font-size:13px;color:var(--muted)">Reposted with a note · ${c.where}</span></div></div>
+        <p style="margin:0;font-family:var(--serifT);font-style:italic;font-size:17px;line-height:1.5;color:var(--soft)">${esc(c.note)}</p>
+      </div>
+      <div style="height:1px;background:var(--hair)"></div>
+      <p class="prev" style="font-size:15px"><sup class="vnum" style="color:var(--muted)">${c.prevVn}</sup>${esc(c.prev)}</p>
+      <p class="vmain" style="font-size:26px"><sup class="vnum">${c.vn}</sup>${esc(c.text)}</p>
+      <div class="ref"><span class="caps">${c.ref}</span><span style="font-size:12px;color:var(--muted)">King James Version</span></div>
+      <div style="border-top:1px solid var(--hair);padding-top:2px;display:flex;gap:24px">
+        <button class="tl" data-act="toast:Opens John 15">Read John 15${ic('arrow',15)}</button>
+        <button class="tl" style="color:var(--muted)" data-act="go:circle-comments">2 comments</button></div>
+    </section>${rail()}</main>`;
+}
+def('circle',{flow:'3 · Circle',name:'Feed — Circle',states:['normal','empty'],
+  goal:'See what people you trust are reading and what they made of it.',
+  container:'Page, same shell as For you. One tab switch, no new chrome.',
+  motion:'Trigger: tab tap · Target: feed body · 220ms · ease-out · Enter: the new tab’s content cross-fades and the underline slides between labels · Reduced motion: underline jumps, content swaps.',
+  haptic:'selection on the tab change.',
+  mocks:['One fixed repost. Friend notes are placeholder copy, clearly marked in brackets.'],
+  a11y:'The tabs are a real tablist; the body is the matching tabpanel.',
+  branches:[['Comments','go:circle-comments'],['Add someone','go:connect'],['For you tab','tab:foryou'],['Show empty circle','state:empty']],
+  render(){return `${hd('Lamp',[['foryou','For you'],['circle','Circle']])}${circleBody()}${toastHTML()}${tabbar('feed')}`}});
+
+def('circle-comments',{flow:'3 · Circle',name:'Comments on a note',
+  goal:'Reply to a friend’s interpretation inside the circle.',
+  container:'Page — a thread is durable and linkable, and the keyboard needs room.',
+  motion:'Trigger: 2 comments · Target: page · 260ms slide from right · Exit: slide right on back · Reduced motion: instant.',
+  haptic:'light on posting.',
+  mocks:['Nothing posts. Comments are fixed placeholder copy.'],
+  a11y:'The composer is labelled and sits last in the tab order, after the thread.',
+  branches:[['Back','go:circle'],['Report a comment','toast:Reported — a leader and the team will see it']],
+  render(){const c=MOCK.circle;return `
+    ${navbar('Comments','circle', `<button class="ra" data-act="toast:Reported — a leader and the team will see it" aria-label="Report">${ic('warn',20)}</button>`)}
+    <div class="scroll" style="padding:4px 24px 0">
+      <div style="padding:14px 0;border-bottom:1px solid var(--hair);display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;gap:10px"><span class="av">${c.initial}</span>
+          <span style="font-size:15px;font-weight:600">${c.friend}</span>
+          <span class="caps" style="color:var(--muted);margin-left:auto">${c.ref}</span></div>
+        <p style="margin:0;font-family:var(--serifT);font-style:italic;font-size:17px;line-height:1.5;color:var(--soft)">${esc(c.note)}</p></div>
+      ${c.comments.map(x=>`<div style="display:flex;gap:12px;padding:16px 0;border-bottom:1px solid var(--hair)">
+        <span class="av">${x.initial}</span>
+        <div style="flex:1;display:flex;flex-direction:column;gap:5px">
+          <span style="font-size:14px;font-weight:600">${x.who}</span>
+          <p style="margin:0;font-size:15px;line-height:1.5">${esc(x.body)}</p>
+          <button class="tl" style="min-height:44px;font-size:13px;color:var(--muted)" data-act="noop">Reply</button></div></div>`).join('')}
+    </div>
+    <div style="padding:12px 24px 20px;border-top:1px solid var(--hair);display:flex;gap:10px;align-items:flex-end;flex:none">
+      <label class="caps" for="cmt" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Write a comment</label>
+      <textarea class="ta" id="cmt" style="min-height:44px;height:44px;font-size:15px;padding:11px 12px" placeholder="Add a comment"></textarea>
+      <button class="ra" data-act="toast:Comment posted to your circle" aria-label="Post comment" style="background:var(--ink);color:var(--onInk)">${ic('send',18)}</button></div>`}});
+
+def('connect',{flow:'3 · Circle',name:'Add someone',states:['normal','expiry'],
+  goal:'Connect in person, so the circle stays people you actually know.',
+  container:'Page — the code needs the whole screen and the task is deliberate.',
+  motion:'Trigger: open · Target: code block · 200ms fade only. The refresh countdown is text, not an animated ring, so it is readable at a glance.',
+  haptic:'success when a connection is accepted.',
+  mocks:['The QR block is a drawn placeholder, not a scannable code.','Real codes refresh every few minutes; the countdown here is frozen.'],
+  a11y:'The countdown is in a polite live region so it is announced on change, not every second.',
+  branches:[['Show expired code','state:expiry'],['Back','go:circle']],
+  render(){const x=S.state==='expiry';return `
+    ${navbar('Add someone','circle')}
+    <div class="scroll" style="padding:10px 24px 0;display:flex;flex-direction:column;gap:20px;align-items:center;text-align:center">
+      <p class="why" style="max-width:280px">Show this to someone next to you, or send them a link. You both have to accept.</p>
+      <div style="width:200px;height:200px;border-radius:20px;border:1px solid var(--hair);display:flex;align-items:center;justify-content:center;color:${x?'var(--muted)':'var(--ink)'};opacity:${x?'.4':'1'}">${ic('qr',120,1.1)}</div>
+      ${x?`<div style="display:flex;flex-direction:column;gap:10px;align-items:center">
+            <span class="err">${ic('warn',15)} This code has expired.</span>
+            <p class="why" style="margin:0;max-width:260px">Codes refresh every few minutes, so a screenshot that gets posted online stops working.</p>
+            <button class="btn sm" data-act="state:normal">Show a new code</button></div>`
+        :`<span class="why" aria-live="polite">Refreshes in 2:41</span>
+          <div style="display:flex;flex-direction:column;gap:10px;width:100%">
+            <button class="btn ghost" data-act="toast:Opens the camera in the real app">Scan their code instead</button>
+            <button class="btn ghost" data-act="toast:Link copied — expires in 24 hours or one use">Share an invite link</button></div>`}
+    </div>`}});
+</script>
+<script>
+/* ============================================================
+   5. SCREENS — part B: search, groups, family, messages, you, settings, system
+   ============================================================ */
+
+/* ---------- FLOW 4: Search ---------- */
+def('search',{flow:'4 · Search',name:'Search',states:['normal','results','empty','offline'],
+  goal:'Find Scripture by what you are feeling, not only by reference.',
+  container:'Page — search owns a tab, and results are durable enough to return to.',
+  motion:'Trigger: typing · Target: results list · 180ms · ease-out · Enter: rows fade in as a group, not staggered, so the list does not ripple on every keystroke · Reduced motion: no fade.',
+  haptic:'none while typing. light on deleting a search.',
+  mocks:['Matching is a fixed tag and synonym list. No AI, no network.','Swipe-to-delete is drawn as a visible button here so it is reachable without a gesture.'],
+  a11y:'The field is type=search with a label. Result count is announced in the live region. Delete has a name that includes the search term.',
+  branches:[['Show results','state:results'],['No results','state:empty'],['Offline','state:offline'],['Recent searches','state:normal']],
+  render(){
+    const field=`<div style="padding:4px 24px 14px;flex:none"><label class="caps" for="q" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Search Scripture</label>
+      <div style="display:flex;align-items:center;gap:10px;border:1px solid var(--hair);border-radius:999px;padding:0 16px;height:48px">
+        <span style="color:var(--muted)">${ic('search',19)}</span>
+        <input id="q" type="search" value="${S.state==='results'||S.state==='empty'?(S.state==='empty'?'xyzzy':'worried about money'):''}" placeholder="A feeling, a topic, or John 3" style="flex:1;height:46px;border:0;background:none;color:var(--ink);font-family:var(--sans);font-size:16px;outline:none">
+      </div></div>`;
+    let body;
+    if(S.state==='results'||S.state==='offline'){
+      body=`<div class="scroll" style="padding:0 24px">
+        ${S.state==='offline'?`<p class="why" style="margin:0 0 10px">Searching your downloaded King James text. Licensed versions need a connection.</p>`:''}
+        <span class="caps" style="color:var(--muted)">4 passages on worry and money</span>
+        ${MOCK.results.map(r=>`<button class="lrow" data-act="go:feed" style="align-items:flex-start">
+          <span class="g"><span class="caps" style="color:var(--muted)">${r.ref}</span>
+          <span style="font-family:var(--serifT);font-size:16px;line-height:1.45">${esc(r.text)}</span>
+          <span class="pill" style="color:var(--muted);font-weight:500">${r.tag}</span></span>
+          <span style="color:var(--muted);margin-top:4px">${ic('chev',18)}</span></button>`).join('')}
+        <p class="why" style="padding:18px 0 24px;margin:0">What you open from here shapes your feed.</p></div>`;
+    } else if(S.state==='empty'){
+      body=`<div class="mid"><span style="color:var(--muted)">${ic('search',34,1.4)}</span><h2>Nothing matched that</h2>
+        <p>Try a feeling (“afraid”, “alone”), a topic, or a reference like John 3.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+          ${['afraid','alone','thankful'].map(t=>`<button class="chip" data-act="state:results">${t}</button>`).join('')}</div></div>`;
+    } else {
+      body=`<div class="scroll" style="padding:0 24px">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:4px">
+          <span class="caps" style="color:var(--muted)">Recent</span>
+          <button class="tl" style="min-height:44px;font-size:13px;color:var(--muted)" data-act="toast:Search history cleared">Clear all</button></div>
+        ${MOCK.searches.map(q=>`<div class="lrow" style="cursor:default">
+          <button class="g" data-act="state:results" style="border:0;background:none;color:var(--ink);text-align:left;cursor:pointer;padding:0;min-height:44px;justify-content:center">
+            <span class="t" style="font-weight:500">${esc(q)}</span></button>
+          <button class="ra" data-act="toast:Removed ‘${esc(q)}’ from history" aria-label="Remove ${esc(q)} from history" style="color:var(--muted)">${ic('trash',18)}</button></div>`).join('')}
+        <p class="why" style="padding:18px 0 0;margin:0">Swipe a search left to remove it, or turn history off in Settings.</p></div>`;
+    }
+    return `${hd('Search')}${field}${S.state==='offline'?offlineBar():''}${body}${toastHTML()}${tabbar('search')}`}});
+
+/* ---------- FLOW 5: Groups ---------- */
+def('groups',{flow:'5 · Groups',name:'Groups list',states:['normal','empty'],
+  goal:'Get into the right group fast, and see what is due today.',
+  container:'Page, tab root.',
+  motion:'Trigger: row tap · Target: page · 260ms slide from right. The group name is a shared element: it moves from the row to the header rather than cross-fading · Reduced motion: no shared element, instant swap.',
+  haptic:'none.',
+  mocks:['Two fixed groups. Joining and leaving do nothing.'],
+  a11y:'Each row’s accessible name includes the group and what is due, so it is useful without the visual sub-line.',
+  branches:[['Youth Group','go:group'],['Family group','go:family'],['Show empty','state:empty']],
+  render(){
+    if(S.state==='empty') return `${hd('Groups')}
+      <div class="mid"><span style="color:var(--muted)">${ic('groups',34,1.4)}</span><h2>No groups yet</h2>
+      <p>A group is a church, a youth group or a family reading together. Someone has to invite you, or you can start one.</p>
+      <div style="display:flex;flex-direction:column;gap:10px;width:100%;max-width:240px">
+        <button class="btn" data-act="toast:Starts a new group in the real app">Start a group</button>
+        <button class="btn ghost" data-act="go:ob-join">I have an invite</button></div></div>${tabbar('groups')}`;
+    return `${hd('Groups')}
+      <div class="scroll" style="padding:4px 24px 0">
+        ${MOCK.groups.map(g=>`<button class="lrow" data-act="go:${g.family?'family':'group'}">
+          <span class="g"><span class="t">${g.name}</span><span class="s">${g.sub}</span></span>
+          <span class="caps" style="color:var(--muted)">${g.role}</span>
+          <span style="color:var(--muted)">${ic('chev',18)}</span></button>`).join('')}
+        <button class="lrow" data-act="toast:Starts a new group in the real app">
+          <span class="g"><span class="t" style="color:var(--muted)">Start a group</span></span>
+          <span style="color:var(--muted)">${ic('plus',18)}</span></button>
+      </div>${toastHTML()}${tabbar('groups')}`}});
+
+function groupTabs(){
+  const t=[['reading','Reading'],['discussion','Discussion'],['prayer','Prayer'],['members','Members']];
+  return `<div role="tablist" aria-label="Group sections" style="display:flex;gap:20px;padding:10px 24px 0;border-bottom:1px solid var(--hair);flex:none">
+    ${t.map(([id,l])=>`<button class="ttab" role="tab" aria-selected="${S.gtab===id}" data-act="gtab:${id}" style="font-size:14px">${l}</button>`).join('')}</div>`;
+}
+function groupHeader(){
+  const g=MOCK.group;
+  return `<header style="display:flex;flex-direction:column;gap:6px;padding:16px 24px 0;flex:none">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
+      <button class="ra" data-act="go:groups" aria-label="Back to groups" style="margin-left:-10px">${ic('back',22)}</button>
+      <div style="flex:1;display:flex;flex-direction:column;gap:5px">
+        <h1 style="margin:0;font-family:var(--serifD);font-size:30px;font-weight:400;line-height:1.08;letter-spacing:-.015em">${g.name}</h1>
+        <span class="s" style="font-size:13px;color:var(--muted)">${g.members} members · Led by ${g.leaders}</span></div>
+      <button class="ra" data-act="toast:Group settings — leaders only" aria-label="Group settings">${ic('cog',20)}</button></div>
+  </header>`;
+}
+function groupBody(){
+  const g=MOCK.group;
+  if(S.gtab==='reading'){
+    if(S.state==='offline') return `<div class="scroll" style="padding:22px 24px 0">${offlineBar()}
+      <p class="why" style="margin:14px 0 0">Today’s chapter is downloaded, so you can read it. Discussion and the prayer wall need a connection.</p>
+      <div style="margin-top:18px"><button class="btn" data-act="toast:Opens John 12 offline">Read John 12</button></div></div>`;
+    return `<div class="scroll" style="padding:22px 24px 0;display:flex;flex-direction:column;gap:14px">
+      <h2 style="margin:0;font-family:var(--serifD);font-size:46px;font-weight:400;line-height:1;letter-spacing:-.02em">${g.book}</h2>
+      <p class="why" style="margin:0">Book of the month: John, a chapter a day. You’re up to date.</p>
+      <button class="btn" data-act="toast:Opens John 12 in the reader" style="align-self:flex-start;width:auto;padding:0 26px;min-height:48px">Read today’s chapter</button>
+      <div style="margin-top:6px;display:flex;flex-direction:column">
+        <div class="srow" style="border-top:1px solid var(--hair)">
+          <span class="caps" style="color:var(--muted)">Your pace</span>
+          <p>Day ${g.day} of ${g.total}. Only you can see this.</p></div>
+        <div class="srow">
+          <span class="caps" style="color:var(--muted)">This week in the group</span>
+          <p>The verses your group starred most: John 12:24, John 12:46.</p></div>
+        <div class="srow">
+          <span class="caps" style="color:var(--muted)">Ranking</span>
+          <p>Off. A leader can turn it on, and the join screen says so when they do.</p></div>
+      </div></div>`;
+  }
+  if(S.gtab==='discussion'){
+    const badge=b=>b?`<span class="pill">${ic('check',13,2)}${b}</span>`:'';
+    return `<div class="scroll" style="padding:18px 24px 0">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:6px">
+        <h3 style="margin:0;font-size:15px;font-weight:600">Discussion on ${g.book}</h3>
+        <button class="tl" style="min-height:44px;text-decoration:underline;text-underline-offset:4px" data-act="go:group-ask">Ask a question</button></div>
+      ${g.threads.map(t=>`<button class="lrow" data-act="go:group-thread" style="align-items:flex-start">
+        <span class="g"><span style="font-family:var(--serifT);font-size:17px;line-height:1.4">${esc(t.q)}</span>
+        <span class="s" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">${t.who} · ${t.n} replies ${badge(t.badge)}</span></span>
+        <span style="color:var(--muted);margin-top:4px">${ic('chev',18)}</span></button>`).join('')}
+      <p class="why" style="padding:18px 0 24px;margin:0">Anyone can ask anonymously. Leaders and co-leaders mark a reply as clarified.</p></div>`;
+  }
+  if(S.gtab==='prayer'){
+    const card=(p,ans)=>`<div style="padding:16px 0;border-top:1px solid var(--hair);display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="av">${p.who==='Anonymous'?'?':p.who[0]}</span>
+        <span style="font-size:14px;font-weight:600">${p.who}</span>
+        ${p.mine?`<span class="caps" style="color:var(--muted)">You</span>`:''}
+        ${ans?`<span class="pill" style="margin-left:auto">${ic('check',13,2)}Answered</span>`:''}</div>
+      <p style="margin:0;font-size:15px;line-height:1.5">${esc(p.body)}</p>
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+        ${ans?`<span class="why">${p.prayed} people prayed</span>`
+          :`<button class="btn ghost sm" data-act="toast:You prayed for this — they’ll see the count, not your name" style="min-height:40px;padding:0 14px">${ic('pray',16)}&nbsp; I prayed for this</button>
+            <span class="why">${p.prayed} prayed</span>
+            ${p.mine?`<button class="tl" style="min-height:44px;font-size:13px;color:var(--muted)" data-act="toast:Marked answered — moves to Answered prayers">Mark answered</button>`:''}`}
+      </div></div>`;
+    return `<div class="scroll" style="padding:18px 24px 0">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:4px">
+        <h3 style="margin:0;font-size:15px;font-weight:600">Prayer wall</h3>
+        <button class="tl" style="min-height:44px;text-decoration:underline;text-underline-offset:4px" data-act="go:group-prayer-new">Post a request</button></div>
+      ${g.prayers.map(p=>card(p,false)).join('')}
+      <div style="margin-top:22px"><span class="caps" style="color:var(--muted)">Answered prayers</span>
+      ${g.answered.map(p=>card(p,true)).join('')}</div>
+      <p class="why" style="padding:18px 0 24px;margin:0">A request with no update for 30 days asks the person whether it’s still needed.</p></div>`;
+  }
+  return `<div class="scroll" style="padding:18px 24px 0">
+    ${MOCK.group.roster.map(m=>`<div class="lrow" style="cursor:default">
+      <span class="av">${m.initial}</span>
+      <span class="g"><span class="t">${m.who}</span><span class="s">${m.role}</span></span>
+      ${m.role==='Leader'||m.role==='Co-leader'?`<span class="pill">${ic('check',13,2)}Can clarify</span>`:''}</div>`).join('')}
+    <p class="why" style="padding:18px 0 24px;margin:0">Only leaders can change roles. Co-leaders run the reading plan; assistants handle invites and moderation.</p></div>`;
+}
+def('group',{flow:'5 · Groups',name:'Group (4 tabs)',states:['normal','offline'],
+  goal:'Read today’s chapter with the group and keep up with the discussion.',
+  container:'Page with tabs. Tabs, not separate pages, because people move between them constantly and context matters.',
+  motion:'Trigger: tab tap · Target: panel · 200ms · ease-out · Enter: cross-fade with a 6px rise; the underline slides · Interruption: a fast second tab tap retargets · Reduced motion: swap with no fade.',
+  haptic:'selection on tab change. light on "I prayed for this". medium on marking a prayer answered.',
+  mocks:['Everything is fixed placeholder content and clearly bracketed.','Growth points and the leaderboard are described but not simulated.'],
+  a11y:'Real tablist with arrow-key movement. Each panel has its own heading so the structure is navigable by headings.',
+  branches:[['Reading','gtab:reading'],['Discussion','gtab:discussion'],['Prayer','gtab:prayer'],['Members','gtab:members'],['A thread','go:group-thread'],['Ask anonymously','go:group-ask'],['Post a request','go:group-prayer-new'],['Offline','state:offline']],
+  render(){return `${groupHeader()}${groupTabs()}${groupBody()}${toastHTML()}${tabbar('groups')}`}});
+
+def('group-thread',{flow:'5 · Groups',name:'Thread + leader answer',
+  goal:'Read a question and see which answer the leader stands behind.',
+  container:'Page — durable, linkable, and the composer needs room.',
+  motion:'Trigger: thread tap · Target: page · 260ms slide. The clarified badge does not animate: a moving badge next to doctrine reads as decoration.',
+  haptic:'none on read. medium for a leader marking an answer, since it carries weight.',
+  mocks:['Replies are fixed. Marking as clarified is leader-only and inert here.'],
+  a11y:'The clarified reply is marked with text, not colour alone, and sits first in the reading order.',
+  branches:[['Back','go:group'],['Mark as clarified','toast:Leaders and co-leaders only']],
+  render(){const g=MOCK.group;return `
+    ${navbar('Question','group')}
+    <div class="scroll" style="padding:4px 24px 0">
+      <div style="padding:12px 0 16px;border-bottom:1px solid var(--hair);display:flex;flex-direction:column;gap:8px">
+        <p style="margin:0;font-family:var(--serifD);font-size:24px;line-height:1.25">${esc(g.threads[0].q)}</p>
+        <span class="s" style="font-size:13px;color:var(--muted)">Asked anonymously · ${g.book} · 6 replies</span></div>
+      ${g.replies.map(r=>`<div style="display:flex;gap:12px;padding:16px 0;border-bottom:1px solid var(--hair)">
+        <span class="av">${r.initial}</span>
+        <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <span style="font-size:14px;font-weight:600">${r.who}</span>
+            ${r.role?`<span class="caps" style="color:var(--muted)">${r.role}</span>`:''}
+            ${r.marked?`<span class="pill">${ic('check',13,2)}Clarified by leader</span>`:''}</div>
+          <p style="margin:0;font-size:15px;line-height:1.55">${esc(r.body)}</p>
+          <div style="display:flex;gap:18px">
+            <button class="tl" style="min-height:44px;font-size:13px;color:var(--muted)" data-act="noop">Reply</button>
+            ${r.marked?'':`<button class="tl" style="min-height:44px;font-size:13px;color:var(--muted)" data-act="toast:Only leaders and co-leaders can mark an answer">Flag for a leader</button>`}</div></div></div>`).join('')}
+      <p class="why" style="padding:16px 0 24px;margin:0">You\u2019re a member here. Leaders and co-leaders are the ones who mark an answer as clarified.</p>
+    </div>
+    <div style="padding:12px 24px 20px;border-top:1px solid var(--hair);display:flex;gap:10px;align-items:flex-end;flex:none">
+      <label class="caps" for="rep" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Write a reply</label>
+      <textarea class="ta" id="rep" style="min-height:44px;height:44px;font-size:15px;padding:11px 12px" placeholder="Add a reply"></textarea>
+      <button class="ra" data-act="toast:Reply posted to the group" aria-label="Post reply" style="background:var(--ink);color:var(--onInk)">${ic('send',18)}</button></div>
+    ${toastHTML()}`}});
+
+def('group-ask',{flow:'5 · Groups',name:'Ask a question',base:'group',
+  goal:'Ask something you might be embarrassed to put your name to.',
+  container:'Sheet — short, and the discussion stays behind it.',
+  motion:'260ms sheet rise, focus to the field after it settles.',
+  haptic:'light on posting.',
+  mocks:['Nothing posts.','Anonymous means hidden from members, not from the system: abuse is still traceable.'],
+  a11y:'The anonymity toggle states its consequence in text under the control.',
+  branches:[['Post','close'],['Cancel','close']],
+  render(){const body=`<div style="display:flex;flex-direction:column;gap:14px">
+      <label class="caps" style="color:var(--muted)" for="qq">Your question about ${MOCK.group.book}</label>
+      <textarea class="ta" id="qq" placeholder="There’s no such thing as a dumb question here"></textarea>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <span class="caps" style="color:var(--muted)">Your name</span>
+        <div class="seg"><button aria-pressed="true">Anonymous</button><button aria-pressed="false">Show my name</button></div>
+        <p class="why" style="margin:0">Members won’t see who asked. The system still keeps a record, so abuse can be handled.</p></div></div>`;
+    return `${groupHeader()}${groupTabs()}${groupBody()}${tabbar('groups')}
+      ${sheet('Ask a question', body, `<div style="display:flex;gap:10px"><button class="btn ghost sm" data-act="close" style="flex:1">Cancel</button><button class="btn" data-act="close" style="flex:2">Post question</button></div>`)}`}});
+
+def('group-prayer-new',{flow:'5 · Groups',name:'Post a prayer request',base:'group',
+  goal:'Share a need, and control who sees it.',
+  container:'Sheet.',
+  motion:'260ms rise. On post, the sheet drops and the new request appears at the top of the wall with a 200ms fade, so the result is visible without a success screen.',
+  haptic:'light on posting.',
+  mocks:['Nothing posts.'],
+  a11y:'Visibility and anonymity are separate labelled controls, because they are separate decisions.',
+  branches:[['Post','close'],['Cancel','close']],
+  render(){const body=`<div style="display:flex;flex-direction:column;gap:14px">
+      <label class="caps" style="color:var(--muted)" for="pr">Your request</label>
+      <textarea class="ta" id="pr" placeholder="What would you like the group to pray for?"></textarea>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <span class="caps" style="color:var(--muted)">Who sees it</span>
+        <div class="seg"><button aria-pressed="true">The whole group</button><button aria-pressed="false">Leaders only</button></div></div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <span class="caps" style="color:var(--muted)">Your name</span>
+        <div class="seg"><button aria-pressed="false">Show my name</button><button aria-pressed="true">Anonymous</button></div></div>
+      <label style="display:flex;align-items:center;gap:10px;font-size:14px;padding:4px 0">
+        <input class="cb" type="checkbox" checked>
+        <span>Remind me to pray for this daily for 7 days</span></label></div>`;
+    return `${groupHeader()}${groupTabs()}${groupBody()}${tabbar('groups')}
+      ${sheet('Prayer request', body, `<div style="display:flex;gap:10px"><button class="btn ghost sm" data-act="close" style="flex:1">Cancel</button><button class="btn" data-act="close" style="flex:2">Post request</button></div>`)}`}});
+
+/* ---------- FLOW 6: Family ---------- */
+def('family',{flow:'6 · Family',name:'Family group',
+  goal:'Give a family its own verse, calling and shared situations.',
+  container:'Page — same group shell, different content, so nothing new has to be learned.',
+  motion:'Trigger: row tap · Target: page · 260ms slide from right · Reduced motion: instant.',
+  haptic:'none.',
+  mocks:['Family content is fixed placeholder text.'],
+  a11y:'The family verse is a blockquote with its citation, not a styled div.',
+  branches:[['Edit what we’re going through','go:family-edit'],['Back','go:groups']],
+  render(){const f=MOCK.family;return `
+    ${navbar(f.name,'groups',`<button class="ra" data-act="toast:Family settings — parents only" aria-label="Family settings">${ic('cog',20)}</button>`)}
+    <div class="scroll" style="padding:6px 24px 0;display:flex;flex-direction:column;gap:4px">
+      <blockquote style="margin:0;padding:18px;border-radius:16px;background:var(--raised);display:flex;flex-direction:column;gap:10px">
+        <span class="caps" style="color:var(--muted)">Our family verse</span>
+        <p style="margin:0;font-family:var(--serifD);font-size:23px;line-height:1.3">“As for me and my house, we will serve the LORD.”</p>
+        <cite class="caps" style="color:var(--muted);font-style:normal">${f.verse}</cite></blockquote>
+      <div class="srow"><span class="caps" style="color:var(--muted)">Our calling</span><p>${f.calling}</p></div>
+      <div class="srow"><span class="caps" style="color:var(--muted)">What we’re going through</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;padding-top:2px">${f.going.map(x=>`<span class="chip" style="cursor:default;pointer-events:none">${x}</span>`).join('')}</div>
+        <p class="why" style="margin:4px 0 0">Everyone in the family gets passages on these.</p>
+        <button class="tl" data-act="go:family-edit" style="align-self:flex-start">Edit${ic('arrow',15)}</button></div>
+      <div class="srow"><span class="caps" style="color:var(--muted)">Word of the day</span><p>Coming from this family group. Change it in Settings.</p></div>
+      <button class="lrow" data-act="toast:Opens the family prayer wall">
+        <span class="g"><span class="t">Family prayer wall</span><span class="s">2 open requests</span></span>
+        <span style="color:var(--muted)">${ic('chev',18)}</span></button>
+      <button class="lrow" data-act="go:you-memorize">
+        <span class="g"><span class="t">Memorise Psalm 23 together</span><span class="s">3 of 5 verses, as a family</span></span>
+        <span style="color:var(--muted)">${ic('chev',18)}</span></button>
+    </div>${toastHTML()}${tabbar('groups')}`}});
+
+def('family-edit',{flow:'6 · Family',name:'Edit family situations',base:'family',
+  goal:'Change what the family is facing, so the feed follows.',
+  container:'Sheet — a short edit on top of its own context.',
+  motion:'260ms rise. Chips animate colour only.',
+  haptic:'selection per chip.',
+  mocks:['Changes are not kept.'],
+  a11y:'Chips are toggle buttons with aria-pressed; the count is announced on change.',
+  branches:[['Save','close'],['Cancel','close']],
+  render(){const chips=['Delays','A move','Illness','A new baby','Money','Grief','Thankful'];
+    const body=`<div style="display:flex;flex-direction:column;gap:14px">
+      <p class="why" style="margin:0">Everyone in the family gets passages on what you pick.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">${chips.map(c=>`<button class="chip" aria-pressed="${MOCK.family.going.includes(c)}" data-act="noop">${c}</button>`).join('')}</div></div>`;
+    return SCREENS.family.render().replace(/<\/div>\s*$/,'') + sheet('What we’re going through', body, `<button class="btn" data-act="close">Save</button>`)}});
+
+/* ---------- FLOW 7: Messages ---------- */
+def('messages',{flow:'7 · Messages',name:'Messages',states:['normal','empty'],
+  goal:'Reach the people in your circle, and nobody else.',
+  container:'Page, tab root.',
+  motion:'Trigger: row tap · Target: page · 260ms slide from right · Reduced motion: instant.',
+  haptic:'none.',
+  mocks:['Two fixed conversations. Nothing sends.'],
+  a11y:'Unread state is conveyed in the accessible name, not only by a dot.',
+  branches:[['Open Tobi','go:dm'],['Empty','state:empty']],
+  render(){
+    if(S.state==='empty') return `${hd('Messages')}
+      <div class="mid"><span style="color:var(--muted)">${ic('msg',34,1.4)}</span><h2>No messages yet</h2>
+      <p>You can only message people in your circle. There are no requests from strangers, ever.</p>
+      <button class="btn sm" data-act="go:connect">Add someone</button></div>${tabbar('messages')}`;
+    return `${hd('Messages')}
+      <div class="scroll" style="padding:4px 24px 0">
+        ${MOCK.dms.map(d=>`<button class="lrow" data-act="go:dm" aria-label="${d.who}, ${d.last}${d.unread?', unread':''}">
+          <span class="av">${d.initial}</span>
+          <span class="g"><span class="t">${d.who}</span><span class="s">${d.last}</span></span>
+          ${d.unread?`<span aria-hidden="true" style="width:8px;height:8px;border-radius:999px;background:var(--gold)"></span>`:''}
+          <span style="color:var(--muted)">${ic('chev',18)}</span></button>`).join('')}
+        <p class="why" style="padding:18px 0 0;margin:0">Only people you’ve connected with can message you.</p>
+      </div>${tabbar('messages')}`}});
+
+def('dm',{flow:'7 · Messages',name:'Direct message',states:['normal','offline'],
+  goal:'Share Scripture with one person, in their own words or your voice.',
+  container:'Page — a conversation is durable and the keyboard needs the screen.',
+  motion:'Trigger: send · Target: new bubble · 220ms · ease-out · Enter: rises 8px and fades while the list scrolls to the end in the same motion · Reduced motion: appears, list jumps.',
+  haptic:'light on send.',
+  mocks:['Nothing sends. The voice note is a drawn waveform, not audio.','No photos or videos in DMs at launch, by design.'],
+  a11y:'Each message says who it is from in its accessible name. The attach menu is a labelled dialog, not an icon row.',
+  branches:[['Attach something','go:dm-attach'],['Offline','state:offline'],['Back','go:messages']],
+  render(){const bub=m=>{
+      const mine=m.me;
+      const base=`max-width:78%;padding:12px 14px;border-radius:18px;font-size:15px;line-height:1.5`;
+      if(m.kind==='verse') return `<div style="align-self:flex-start;${base};border:1px solid var(--hair);background:var(--raised);display:flex;flex-direction:column;gap:8px">
+        <span class="caps" style="color:var(--muted)">${m.ref}</span>
+        <span style="font-family:var(--serifT);font-size:17px">${esc(m.text)}</span>
+        <button class="tl" style="min-height:44px;font-size:13px" data-act="go:feed">Open in the reader${ic('arrow',14)}</button></div>`;
+      return `<div style="align-self:${mine?'flex-end':'flex-start'};${base};background:${mine?'var(--ink)':'var(--raised)'};color:${mine?'var(--onInk)':'var(--ink)'}">${esc(m.body)}</div>`;
+    };
+    return `${navbar('Tobi','messages',`<span class="av" aria-hidden="true">T</span>`)}
+      ${S.state==='offline'?offlineBar():''}
+      <div class="scroll" style="padding:10px 24px 0;display:flex;flex-direction:column;gap:10px">
+        <span class="why" style="align-self:center">Today</span>
+        ${MOCK.dm.map(bub).join('')}
+        ${S.state==='offline'?`<div style="align-self:flex-end;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)">${ic('clock',14)} Waiting to send</div>`:''}
+      </div>
+      <div style="padding:12px 24px 20px;border-top:1px solid var(--hair);display:flex;gap:10px;align-items:flex-end;flex:none">
+        <button class="ra" data-act="go:dm-attach" aria-label="Attach a passage, note or voice note">${ic('plus',22)}</button>
+        <label class="caps" for="dmi" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Message</label>
+        <textarea class="ta" id="dmi" style="min-height:44px;height:44px;font-size:15px;padding:11px 12px" placeholder="Message"></textarea>
+        <button class="ra" data-act="toast:Sent" aria-label="Send" style="background:var(--ink);color:var(--onInk)">${ic('send',18)}</button></div>
+      ${toastHTML()}`}});
+
+def('dm-attach',{flow:'7 · Messages',name:'Attach menu',base:'dm',
+  goal:'Make clear what can be shared, and that photos are not part of it.',
+  container:'Sheet — a short list of choices at thumb reach.',
+  motion:'200ms rise, 160ms exit. Shorter than a content sheet because the decision is quick.',
+  haptic:'selection on choice.',
+  mocks:['Every option is inert.'],
+  a11y:'Each row has an icon plus a text label; the icons are decorative.',
+  branches:[['Close','close']],
+  render(){const opt=(i,t,s,act)=>`<button class="lrow" data-act="${act}"><span style="width:36px;display:flex;justify-content:center;color:var(--ink)">${ic(i,20)}</span>
+      <span class="g"><span class="t">${t}</span><span class="s">${s}</span></span></button>`;
+    const body = opt('book','A passage','Pick any verse or chapter','close')
+      + opt('note','One of your notes','Only notes you choose to share','close')
+      + opt('mic','A voice note','Read a passage aloud','close')
+      + `<p class="why" style="padding:16px 0 0;margin:0">Photos and videos aren’t part of messages. The app is for Scripture, and leaving them out removes the biggest safety risk for younger users.</p>`;
+    return SCREENS.dm.render() + sheet('Share something', body)}});
+
+/* ---------- FLOW 8: You ---------- */
+def('you',{flow:'8 · You',name:'You',
+  goal:'One place for what you saved, what you wrote, and what you’re going through.',
+  container:'Page, tab root.',
+  motion:'Trigger: row tap · Target: page · 260ms slide from right · Reduced motion: instant.',
+  haptic:'none.',
+  mocks:['Counts are fixed. No streaks, no follower counts, nowhere in the app.'],
+  a11y:'The situations block is a labelled region with its own heading, so it is reachable by heading navigation.',
+  branches:[['What I’m going through','go:you-situations'],['Saved','go:you-saved'],['Notes','go:you-journal'],['A year ago','go:you-lookback'],['Memorise','go:you-memorize'],['Settings','go:settings']],
+  render(){return `${hd('You')}
+    <div class="scroll" style="padding:6px 24px 0">
+      <div style="display:flex;align-items:center;gap:14px;padding:10px 0 18px">
+        <span class="av" style="width:56px;height:56px;font-size:20px">${MOCK.user.initial}</span>
+        <div style="display:flex;flex-direction:column;gap:3px">
+          <span style="font-family:var(--serifD);font-size:24px">Daniel</span>
+          <span class="s" style="font-size:13px;color:var(--muted)">2 groups · 2 in your circle</span></div>
+        <button class="ra" data-act="go:settings" aria-label="Settings" style="margin-left:auto">${ic('cog',22)}</button></div>
+      <section aria-labelledby="sit-h" style="padding:16px;border-radius:16px;border:1px solid var(--hair);display:flex;flex-direction:column;gap:10px">
+        <h2 id="sit-h" class="caps" style="color:var(--muted);margin:0">What I’m going through</h2>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">${MOCK.situations.map(s=>`<span class="chip" style="cursor:default;pointer-events:none">${s}</span>`).join('')}</div>
+        <p class="why" style="margin:0">Your feed is built from these. Change them whenever life changes.</p>
+        <button class="tl" data-act="go:you-situations" style="align-self:flex-start">Edit${ic('arrow',15)}</button></section>
+      <div style="margin-top:6px">
+        ${[['save','Saved verses','3 in your collection','you-saved'],
+           ['note','My notes','2 notes, 1 private','you-journal'],
+           ['clock','A year ago today','1 verse you saved','you-lookback'],
+           ['cards','Memorising','Psalm 23 · 3 of 5 verses','you-memorize']]
+          .map(([i,t,s,go])=>`<button class="lrow" data-act="go:${go}">
+            <span style="width:28px;display:flex;justify-content:center;color:var(--ink)">${ic(i,20)}</span>
+            <span class="g"><span class="t">${t}</span><span class="s">${s}</span></span>
+            <span style="color:var(--muted)">${ic('chev',18)}</span></button>`).join('')}
+      </div>
+      <div style="height:20px"></div>
+    </div>${tabbar('you')}`}});
+
+def('you-situations',{flow:'8 · You',name:'Edit my situations',
+  goal:'Change the feed in the moment, including marking something as over.',
+  container:'Page — this is the one control that steers everything, so it is not buried in a sheet.',
+  motion:'Trigger: "no longer" · Target: chip · 260ms · ease-out · Exit: the chip fades and the row reflows once, settled, rather than sliding every neighbour · Reduced motion: chip disappears, no reflow animation.',
+  haptic:'selection on add. light on marking something over.',
+  mocks:['Nothing is kept.','This screen is new: it was not in the first design round, and it is the answer to "how do I tell it what I’m going through again".'],
+  a11y:'Active situations are a list; each has a labelled remove button naming the situation.',
+  branches:[['Back','go:you'],['Mark one as over','toast:Marked as over — your feed will shift']],
+  render(){const chips=['Grief','Anxiety','A breakup','Purpose','Discipline','Faith doubts','Money','Loneliness','Thankful'];
+    return `${navbar('What I’m going through','you')}
+    <div class="scroll" style="padding:6px 24px 0;display:flex;flex-direction:column;gap:20px">
+      <p class="why" style="margin:0">Your feed follows this. Nothing here is shared with anyone.</p>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <span class="caps" style="color:var(--muted)">Right now</span>
+        ${MOCK.situations.map(s=>`<div class="lrow" style="cursor:default;border-top:1px solid var(--hair)">
+          <span class="g"><span class="t">${s}</span><span class="s">Added 3 weeks ago</span></span>
+          <button class="btn ghost sm" data-act="toast:Marked as over — your feed will shift" style="min-height:44px;padding:0 14px" aria-label="Mark ${s} as no longer going on">No longer</button></div>`).join('')}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <span class="caps" style="color:var(--muted)">Add something</span>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">${chips.map(c=>`<button class="chip" aria-pressed="false" data-act="toast:Added — your feed will shift">${c}</button>`).join('')}</div>
+        <label class="caps" style="color:var(--muted);margin-top:6px" for="own2">Or say it your own way</label>
+        <textarea class="ta" id="own2" style="min-height:80px;font-size:16px" placeholder="e.g. my dad is in hospital"></textarea></div>
+      <div style="height:20px"></div>
+    </div>${toastHTML()}`}});
+
+def('you-saved',{flow:'8 · You',name:'Saved verses',states:['normal','empty'],
+  goal:'Return to what you kept.',
+  container:'Page.',
+  motion:'List rows have no entrance animation: a saved list is re-read often and animating it every visit becomes noise.',
+  haptic:'none.',
+  mocks:['Three fixed verses.'],
+  a11y:'Collections are a list; each row opens the passage.',
+  branches:[['Back','go:you'],['Empty','state:empty']],
+  render(){
+    if(S.state==='empty') return `${navbar('Saved','you')}
+      <div class="mid"><span style="color:var(--muted)">${ic('save',34,1.4)}</span><h2>Nothing saved yet</h2>
+      <p>Tap the bookmark on any passage and it lands here, ready for when you need it.</p>
+      <button class="btn sm" data-act="go:feed">Back to the feed</button></div>`;
+    return `${navbar('Saved','you')}
+      <div class="scroll" style="padding:6px 24px 0">
+        <span class="caps" style="color:var(--muted)">3 verses</span>
+        ${MOCK.saved.map(s=>`<button class="lrow" data-act="go:feed" style="align-items:flex-start">
+          <span class="g"><span class="caps" style="color:var(--muted)">${s.ref}</span>
+          <span style="font-family:var(--serifT);font-size:16px;line-height:1.45">${esc(s.text)}</span></span>
+          <span style="color:var(--muted);margin-top:4px">${ic('chev',18)}</span></button>`).join('')}
+        <button class="lrow" data-act="go:you-memorize"><span class="g"><span class="t" style="color:var(--muted)">Turn these into flashcards</span></span>
+        <span style="color:var(--muted)">${ic('cards',18)}</span></button>
+      </div>`}});
+
+def('you-journal',{flow:'8 · You',name:'My notes',
+  goal:'See everything you have written, private and shared together.',
+  container:'Page.',
+  motion:'No entrance animation, same reason as Saved.',
+  haptic:'none.',
+  mocks:['Two fixed notes.'],
+  a11y:'Private and shared are distinguished by a text label, not an icon alone.',
+  branches:[['Back','go:you'],['Sunday notes','toast:Opens your sermon notes']],
+  render(){return `${navbar('My notes','you',`<button class="ra" data-act="toast:Opens your sermon notes" aria-label="Sunday notes">${ic('book',20)}</button>`)}
+    <div class="scroll" style="padding:6px 24px 0">
+      <button class="lrow" data-act="toast:Opens your sermon notes" style="border-top:0">
+        <span class="g"><span class="t">Sunday notes</span><span class="s">Last Sunday · on love. Shaping your feed this week.</span></span>
+        <span style="color:var(--muted)">${ic('chev',18)}</span></button>
+      ${MOCK.journal.map(j=>`<div class="lrow" style="cursor:default;align-items:flex-start;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:baseline;gap:10px;width:100%">
+          <span class="caps" style="color:var(--muted)">${j.ref}</span>
+          <span class="s" style="font-size:12px;color:var(--muted)">${j.when}</span>
+          <span class="caps" style="color:var(--muted);margin-left:auto">${j.priv?'Private':'Shared with circle'}</span></div>
+        <p style="margin:0;font-family:var(--serifT);font-size:16px;line-height:1.5">${esc(j.body)}</p></div>`).join('')}
+    </div>${toastHTML()}`}});
+
+def('you-lookback',{flow:'8 · You',name:'A year ago today',
+  goal:'Show growth without a streak or a score.',
+  container:'Page.',
+  motion:'Trigger: open · Target: card · 300ms · ease-out · Enter: the card fades up 10px once. Nothing loops.',
+  haptic:'none.',
+  mocks:['One fixed memory.'],
+  a11y:'The date is a real time element.',
+  branches:[['Back','go:you']],
+  render(){return `${navbar('A year ago today','you')}
+    <div class="scroll" style="padding:14px 24px 0;display:flex;flex-direction:column;gap:18px">
+      <div style="padding:20px;border-radius:18px;background:var(--raised);display:flex;flex-direction:column;gap:14px">
+        <time class="caps" style="color:var(--muted)" datetime="2025-11-05">5 November 2025</time>
+        <p style="margin:0;font-family:var(--serifD);font-size:26px;line-height:1.28">Have not I commanded thee? Be strong and of a good courage.</p>
+        <span class="caps" style="color:var(--muted)">Joshua 1:9</span>
+        <div style="height:1px;background:var(--hair)"></div>
+        <span class="caps" style="color:var(--muted)">What you wrote then</span>
+        <p style="margin:0;font-family:var(--serifT);font-style:italic;font-size:16px;line-height:1.5;color:var(--soft)">[Your note from a year ago appears here.]</p></div>
+      <button class="btn ghost" data-act="toast:Reposted to your circle">Share this with my circle</button>
+    </div>${toastHTML()}`}});
+
+def('you-memorize',{flow:'8 · You',name:'Memorise mode',
+  goal:'Learn a passage by heart, alone or with a group.',
+  container:'Page — a focused drill, so the tab bar stays but nothing else competes.',
+  motion:'Trigger: Show me · Target: card · 320ms · ease-out · Enter: the hidden words cross-fade in place; the card does not flip, because a flip hides the reference you are trying to anchor to · Reduced motion: words appear instantly.',
+  haptic:'light on reveal, success on finishing a verse.',
+  mocks:['Fixed card. Progress is not saved.'],
+  a11y:'Hidden words are aria-hidden until revealed, so a screen reader is not given the answer early.',
+  branches:[['Back','go:you'],['Reveal','toast:Revealed — the real app fades the words in'],['As a group','go:family']],
+  render(){return `${navbar('Psalm 23','you')}
+    <div class="scroll" style="padding:14px 24px 0;display:flex;flex-direction:column;gap:18px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span class="caps" style="color:var(--muted)">Verse 3 of 5</span>
+        <span class="why">With The Daniels</span></div>
+      <div style="padding:24px 20px;border-radius:18px;border:1px solid var(--hair);min-height:220px;display:flex;flex-direction:column;justify-content:center;gap:16px">
+        <p style="margin:0;font-family:var(--serifD);font-size:26px;line-height:1.3">He restoreth my
+          <span aria-hidden="true" style="display:inline-block;min-width:76px;border-bottom:1px solid var(--muted)">&nbsp;</span>:
+          he leadeth me in the paths of
+          <span aria-hidden="true" style="display:inline-block;min-width:96px;border-bottom:1px solid var(--muted)">&nbsp;</span>
+          for his name’s sake.</p>
+        <span class="caps" style="color:var(--muted)">Psalm 23:3</span></div>
+      <div style="display:flex;gap:10px">
+        <button class="btn ghost" data-act="toast:Revealed — the real app fades the words in" style="flex:1">Show me</button>
+        <button class="btn" data-act="toast:Nice — on to verse 4" style="flex:1">I got it</button></div>
+      <p class="why" style="margin:0">Your family is on verse 3 too. Nobody is ranked.</p>
+    </div>${toastHTML()}`}});
+
+/* ---------- FLOW 9: Settings ---------- */
+def('settings',{flow:'9 · Settings',name:'Settings',
+  goal:'Put every promise the app makes under the user’s control.',
+  container:'Page, grouped list.',
+  motion:'No animation on toggles beyond the control’s own 120ms state change.',
+  haptic:'selection on each toggle.',
+  mocks:['Toggles do not persist.','Widgets are listed but cannot be tested on a free Apple developer account.'],
+  a11y:'Every switch is a real checkbox with a label; the group headings are real headings.',
+  branches:[['Translations','go:settings-trans'],['Back','go:you']],
+  render(){
+    const sw=(t,s,on)=>`<label class="lrow" style="cursor:pointer"><span class="g"><span class="t">${t}</span><span class="s">${s}</span></span>
+      <input class="sw" type="checkbox" role="switch" ${on?'checked':''}></label>`;
+    const link=(t,s,go)=>`<button class="lrow" data-act="${go}"><span class="g"><span class="t">${t}</span><span class="s">${s}</span></span><span style="color:var(--muted)">${ic('chev',18)}</span></button>`;
+    const head=t=>`<h2 class="caps" style="color:var(--muted);margin:22px 0 0">${t}</h2>`;
+    return `${navbar('Settings','you')}
+    <div class="scroll" style="padding:2px 24px 0">
+      ${head('Reading')}
+      ${link('Translations','King James Version · 3 downloaded','go:settings-trans')}
+      ${sw('Show context cards automatically','Who, where and when, without tapping',true)}
+      ${sw('Dark mode follows the system','Light now',true)}
+      ${head('Your feed')}
+      ${link('What I’m going through','Courage, new job','go:you-situations')}
+      ${sw('Use my Sunday notes','Shapes the week after a sermon',true)}
+      ${sw('Keep search history','Used to tune your feed',true)}
+      ${head('Notifications')}
+      ${sw('Word of the day','7:00 am, on your lock screen',true)}
+      ${sw('Friend and group activity','Reposts, replies and prayer requests',false)}
+      ${link('Widgets','Lock screen and home screen','toast:Needs a paid Apple developer account to test')}
+      ${head('Safety')}
+      ${link('Who can message me','People in my circle only','toast:Opens messaging rules')}
+      ${link('Blocked people','None','toast:Opens the blocked list')}
+      ${link('Report a problem','Goes to the team, and a leader if it’s in a group','toast:Opens the report form')}
+      <div style="height:26px"></div>
+    </div>${toastHTML()}`}});
+
+def('settings-trans',{flow:'9 · Settings',name:'Translations',
+  goal:'Be honest about which versions are free, which are licensed, and which work offline.',
+  container:'Page — a list with real consequences, worth its own screen.',
+  motion:'Download shows a determinate progress bar, not a spinner, because the wait is measurable.',
+  haptic:'success when a download finishes.',
+  mocks:['No downloads happen. Sizes are illustrative.'],
+  a11y:'Progress uses a real progressbar role with a value.',
+  branches:[['Back','go:settings']],
+  render(){const row=(id,name,note,state)=>`<div class="lrow" style="cursor:default;align-items:flex-start">
+      <span class="g"><span class="t">${name}</span><span class="s">${note}</span>
+      ${state==='downloading'?`<div role="progressbar" aria-valuenow="62" aria-valuemin="0" aria-valuemax="100" aria-label="Downloading ${name}" style="height:4px;border-radius:999px;background:var(--hair);margin-top:6px"><div style="width:62%;height:4px;border-radius:999px;background:var(--ink)"></div></div>`:''}</span>
+      ${state==='on'?`<span class="pill">${ic('check',14,2)}Offline</span>`
+        :state==='downloading'?`<span class="why">62%</span>`
+        :`<button class="btn ghost sm" data-act="toast:Downloading — illustrative only" style="min-height:44px;padding:0 14px">Get</button>`}</div>`;
+    return `${navbar('Translations','settings')}
+    <div class="scroll" style="padding:6px 24px 0">
+      <h2 class="caps" style="color:var(--muted);margin:10px 0 0">Free, and yours to keep</h2>
+      ${row('KJV','King James Version','Public domain · 4.6 MB · current','on')}
+      ${row('BSB','Berean Standard Bible','Public domain · modern English · 4.9 MB','on')}
+      ${row('WEB','World English Bible','Public domain · 4.8 MB','downloading')}
+      <h2 class="caps" style="color:var(--muted);margin:22px 0 0">Licensed</h2>
+      ${row('NIV','New International Version','Through YouVersion · needs a connection','off')}
+      ${row('NLT','New Living Translation','Through YouVersion · needs a connection','off')}
+      <p class="why" style="padding:18px 0 26px;margin:0">Licensed versions come from YouVersion Platform, which is free for approved apps. Whether they can be stored for offline use depends on their terms, and that is still to be confirmed.</p>
+    </div>${toastHTML()}`}});
+
+/* ---------- FLOW 10: System surfaces ---------- */
+def('system-lock',{flow:'10 · System surfaces',name:'Lock screen',
+  goal:'Show what the app looks like when the phone is asleep.',
+  container:'OS surface. We own the content, not the chrome.',
+  motion:'System owned. The widget never animates.',
+  haptic:'The OS notification sound and haptic, not ours.',
+  mocks:['This is a drawing of iOS, not iOS. It proves content and hierarchy only.','The lock-screen widget cannot be tested on a free Apple developer account: widgets need capabilities a free Personal Team is not given.'],
+  a11y:'On device, the widget needs an accessibility label that reads the verse and reference.',
+  branches:[['Open the app','go:feed']],
+  render(){return `<div class="ios">
+    <div style="font-size:15px;opacity:.75;margin-bottom:2px">Thursday 5 November</div>
+    <div style="font-size:74px;font-weight:300;letter-spacing:-.02em;line-height:1;margin-bottom:22px">7:04</div>
+    <div class="lockwid" style="margin-bottom:12px">
+      <div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;opacity:.7;margin-bottom:6px">Lamp · Word of the day</div>
+      <div style="font-family:var(--serifD);font-size:19px;line-height:1.3">Be of good courage, and he shall strengthen your heart.</div>
+      <div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;opacity:.7;margin-top:8px">Psalm 31:24</div></div>
+    <button class="lockntf" data-act="go:feed" style="text-align:left;border:0;cursor:pointer;font-family:var(--sans)">
+      <span style="width:34px;height:34px;border-radius:8px;background:#141413;color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--serifD);font-size:17px;flex:none">L</span>
+      <span style="display:flex;flex-direction:column;gap:2px"><span style="font-size:13px;font-weight:600">Lamp</span>
+      <span style="font-size:14px;line-height:1.35">Psalm 31:24 — Be of good courage, and he shall strengthen your heart…</span></span>
+      <span style="font-size:11px;opacity:.5;margin-left:auto">now</span></button>
+    <div style="flex:1"></div>
+    <div style="font-size:12px;opacity:.55">Drawn mock of iOS — not the real lock screen</div></div>`}});
+</script>
+<script>
+/* ============================================================
+   6. RUNTIME — router, review controls, a11y plumbing
+   ============================================================ */
+const VPS={small:[375,667,'phone','Small 375'],phone:[390,844,'phone','Phone 390'],large:[430,932,'phone','Large 430'],tablet:[820,1180,'tablet','Tablet 820']};
+const scr=document.getElementById('screen'), dev=document.getElementById('device'), live=document.getElementById('live');
+let lastTrigger=null, verdicts={}, notes={};
+
+function announce(t){ live.textContent=''; setTimeout(()=>live.textContent=t,30); }
+
+function render(){
+  const d=SCREENS[S.screen]; if(!d) return;
+  const [w,h,cls] = VPS[S.vp];
+  dev.className='device '+(cls==='tablet'?'tablet':'');
+  scr.style.width=w+'px'; scr.style.height=h+'px'; scr.dataset.mode=S.mode;
+  scr.innerHTML=`<div class="app">${d.render()}</div>`;
+  paintReview(d);
+  const sh=scr.querySelector('[data-sheet]');
+  if(sh){ const f=sh.querySelector('button,[href],input,textarea,select'); if(f) setTimeout(()=>f.focus(),document.body.classList.contains('reduced')?0:280); }
+}
+
+function paintReview(d){
+  document.getElementById('crumb').innerHTML =
+    `${d.flow} &nbsp;·&nbsp; <b>${d.name}</b> &nbsp;·&nbsp; ${S.state}${S.stack.length?` &nbsp;·&nbsp; depth ${S.stack.length}`:''}`;
+  document.getElementById('hint').textContent = d.base ? `Overlay on “${SCREENS[d.base].name}” — Escape or the scrim closes it and returns focus to the trigger.` : '';
+  document.querySelectorAll('.scr').forEach(b=>b.setAttribute('aria-current', b.dataset.id===S.screen));
+
+  const mocks=(d.mocks||[]).map(m=>`<dd>${/N\/A/.test(m)?'<span class="badge b-na">N/A</span> ':'<span class="badge b-mock">mock</span> '}${m}</dd>`).join('');
+  document.getElementById('meta').innerHTML=`<dl style="margin:0">
+    <dt>Goal</dt><dd>${d.goal||''}</dd>
+    <dt>Mocks &amp; limits</dt>${mocks||'<dd>—</dd>'}
+    <dt>Accessibility</dt><dd>${d.a11y||''}</dd></dl>`;
+
+  document.getElementById('trans').innerHTML=`
+    <dt>Container choice</dt><dd>${d.container||''}</dd>
+    <dt>Motion</dt><dd>${d.motion||''}</dd>
+    <dt>Haptic <span class="badge b-unver">unverified</span></dt><dd>${d.haptic||''} <em style="color:#6f6c67">Browser cannot prove native haptics.</em></dd>`;
+
+  const sc=document.getElementById('stateCtl');
+  sc.innerHTML=(d.states||['normal']).map(s=>`<button data-st="${s}" aria-pressed="${S.state===s}">${s}</button>`).join('')||'<span class="row">normal only</span>';
+  document.getElementById('branchCtl').innerHTML=(d.branches||[]).map(([l,a])=>`<button data-br="${a}">${l}</button>`).join('')||'<span class="row">—</span>';
+
+  const v=verdicts[S.screen]||'';
+  document.querySelectorAll('#verdict button').forEach(b=>b.setAttribute('aria-pressed', b.dataset.v===v));
+  document.getElementById('noteBox').value = notes[S.screen]||'';
+}
+
+function act(a, el){
+  if(!a||a==='noop') return;
+  const [k,...rest]=a.split(':'); const arg=rest.join(':');
+  if(k==='go'){ S.toast=null; S.stack=[]; S.state='normal';
+    if(arg==='feed'){S.tab='foryou';} if(arg==='circle'){S.tab='circle';}
+    S.screen=arg; render(); announce(SCREENS[arg]?.name||arg); scr.focus(); return; }
+  if(k==='open'){ S.toast=null; lastTrigger=el?el.dataset.act:null; S.stack.push(S.screen); S.screen=arg; render(); announce(SCREENS[arg]?.name+' opened'); return; }
+  if(k==='close'){ S.toast=null; const back=S.stack.pop(); if(back) S.screen=back; S.state='normal'; render();
+    if(lastTrigger){ const t=scr.querySelector(`[data-act="${CSS.escape(lastTrigger)}"]`); if(t) t.focus(); lastTrigger=null; }
+    announce('Closed'); return; }
+  if(k==='tab'){ S.tab=arg; S.toast=null; S.screen = arg==='circle'?'circle':'feed'; S.state='normal'; render(); announce(arg==='circle'?'Circle':'For you'); return; }
+  if(k==='gtab'){ S.gtab=arg; S.toast=null; render(); announce(arg); return; }
+  if(k==='state'){ S.state=arg; S.toast=null; render(); announce('State: '+arg); return; }
+  if(k==='toggle'){
+    if(arg==='star'){ S.starred=!S.starred; S.toast=S.starred?'Starred':'Star removed'; }
+    else if(arg.startsWith('sit:')){ const s=arg.slice(4); const i=MOCK.situations.indexOf(s);
+      i>=0?MOCK.situations.splice(i,1):MOCK.situations.push(s); }
+    render(); return; }
+  if(k==='toast'){ S.toast=arg; render(); announce(arg); return; }
+}
+
+scr.addEventListener('click',e=>{ const t=e.target.closest('[data-act]'); if(!t) return; e.preventDefault(); act(t.dataset.act,t); });
+scr.addEventListener('keydown',e=>{
+  if(e.key==='Escape' && SCREENS[S.screen]?.base){ e.preventDefault(); act('close'); return; }
+  if(e.key!=='Tab') return;
+  const sh=scr.querySelector('[data-sheet]'); if(!sh) return;
+  const f=[...sh.querySelectorAll('button,[href],input,textarea,select')].filter(x=>!x.disabled);
+  if(!f.length) return; const first=f[0], last=f[f.length-1];
+  if(e.shiftKey && document.activeElement===first){ e.preventDefault(); last.focus(); }
+  else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
+});
+
+/* review panel wiring */
+document.getElementById('themeCtl').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+  S.mode=b.dataset.mode; document.querySelectorAll('#themeCtl button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.mode===S.mode)); render();});
+const vpCtl=document.getElementById('vpCtl');
+vpCtl.innerHTML=Object.entries(VPS).map(([k,v])=>`<button data-vp="${k}" aria-pressed="${S.vp===k}">${v[3]}</button>`).join('');
+vpCtl.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+  S.vp=b.dataset.vp; vpCtl.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.vp===S.vp)); render();});
+document.getElementById('a11yCtl').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+  const on=b.getAttribute('aria-pressed')!=='true'; b.setAttribute('aria-pressed',on);
+  document.body.classList.toggle(b.dataset.a11y==='kbd'?'kbdmode':'reduced',on);
+  if(b.dataset.a11y==='kbd'&&on) scr.querySelector('button,[href],input,textarea')?.focus();});
+document.getElementById('stateCtl').addEventListener('click',e=>{const b=e.target.closest('[data-st]');if(b)act('state:'+b.dataset.st);});
+document.getElementById('branchCtl').addEventListener('click',e=>{const b=e.target.closest('[data-br]');if(b)act(b.dataset.br);});
+
+/* nav */
+const byFlow={}; Object.entries(SCREENS).forEach(([id,d])=>{(byFlow[d.flow]=byFlow[d.flow]||[]).push([id,d]);});
+document.getElementById('nav').innerHTML=Object.entries(byFlow).map(([f,list],i)=>
+  `<details class="flow" ${i<2?'open':''}><summary>${f}<span class="n">${list.length}</span></summary>
+   ${list.map(([id,d])=>`<button class="scr" data-id="${id}">${d.name}${d.base?' ↗':''}</button>`).join('')}</details>`).join('');
+document.getElementById('nav').addEventListener('click',e=>{const b=e.target.closest('.scr');if(!b)return;
+  const d=SCREENS[b.dataset.id];
+  S.stack = d.base?[d.base]:[]; S.screen=b.dataset.id; S.state='normal'; S.toast=null;
+  if(b.dataset.id==='circle')S.tab='circle'; if(b.dataset.id==='feed')S.tab='foryou';
+  render(); announce(d.name);});
+
+/* coverage map */
+const ALL=['entry','happy path','loading','empty','validation','permission','offline','error + retry','cancellation','interruption','expiry','success','exit'];
+const COV={
+ 'entry':'Welcome, group invite deep link, lock-screen notification.',
+ 'happy path':'Onboarding 1–5, feed, circle, group reading, DM, you.',
+ 'loading':'Feed skeleton; translation download with a determinate bar.',
+ 'empty':'Empty circle, no groups, no messages, nothing saved, no search results. <span class="badge b-na">N/A</span> for the main feed: public-domain text ships with the app, so it always has content; the filtered-out case is shown instead.',
+ 'validation':'Onboarding step 1 with nothing picked; a note too short to count as a reflection.',
+ 'permission':'Notification request, plus the denied state with a route to iOS Settings.',
+ 'offline':'Feed, search, group reading, DM queued to send, downloaded translations.',
+ 'error + retry':'Feed failed to load, with retry and a route to saved verses. <span class="badge b-na">N/A</span> for exhausted retry: there is no server call to exhaust at launch.',
+ 'cancellation':'Every sheet: scrim, X, Escape, swipe. Cancel on note, question and prayer composers.',
+ 'interruption':'Sheet drag mid-animation retargets; a second feed swipe retargets to the newest card. <span class="badge b-unver">unverified</span> backgrounding and resume need the native runtime.',
+ 'expiry':'Expired group invite link; expired personal QR code.',
+ 'success':'Onboarding done, done for today, answered prayer, memorised verse.',
+ 'exit':'Tab bar from every root; back from every pushed page; the feed is the home exit.'
+};
+document.getElementById('cov').innerHTML=ALL.map(k=>`<tr><td>${k}</td><td>${COV[k]||'—'}</td></tr>`).join('');
+
+/* decision surface */
+document.getElementById('verdict').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+  verdicts[S.screen]=verdicts[S.screen]===b.dataset.v?'':b.dataset.v;
+  document.querySelectorAll('#verdict button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.v===verdicts[S.screen]));
+  writeLog();});
+document.getElementById('noteBox').addEventListener('input',e=>{notes[S.screen]=e.target.value;writeLog();});
+function writeLog(){
+  const keys=[...new Set([...Object.keys(verdicts),...Object.keys(notes)])].filter(k=>verdicts[k]||notes[k]);
+  document.getElementById('log').textContent = keys.length
+    ? keys.map(k=>`${SCREENS[k]?SCREENS[k].name:k}: ${(verdicts[k]||'no verdict')}${notes[k]?' — '+notes[k]:''}`).join('\n')
+    : 'No decisions recorded yet.';
+}
+document.getElementById('exportBtn').addEventListener('click',()=>{
+  const t=document.getElementById('log').textContent;
+  navigator.clipboard?.writeText(t).then(()=>announce('Notes copied'),()=>announce('Copy failed — select the text instead'));});
+document.getElementById('clearBtn').addEventListener('click',()=>{verdicts={};notes={};document.getElementById('noteBox').value='';
+  document.querySelectorAll('#verdict button').forEach(x=>x.setAttribute('aria-pressed','false'));writeLog();});
+
+writeLog(); render();
+</script>
+</body>
+</html>

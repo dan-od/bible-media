@@ -1,0 +1,46 @@
+name: Backend RLS authorization suite
+
+# The database — not the client — is the enforcement boundary, so the 22
+# authorization checks run on every change that touches the schema, the suite,
+# or the wiring. A bare postgres:16 service stands in for Supabase; the
+# stub (backend/stub_auth.sql) provides auth.users / auth.uid(), and the runner
+# asserts the migration has not drifted from backend/schema.sql.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'supabase/migrations/**'
+      - 'scripts/rls-test.sh'
+      - '.github/workflows/backend-rls.yml'
+  pull_request:
+    paths:
+      - 'backend/**'
+      - 'supabase/migrations/**'
+      - 'scripts/rls-test.sh'
+      - '.github/workflows/backend-rls.yml'
+
+jobs:
+  rls:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: app
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d app"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/app
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install psql client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Run the RLS authorization suite (base + decision checks)
+        run: ./scripts/rls-test.sh
