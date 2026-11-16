@@ -93,7 +93,13 @@ themes; it does not guess from recency.
 2. **Leaders do not see who prayed — count only.** `prayer_prayed` stays as it is; no one
    reads another member's prayed row (the `prayed_read` policy already restricts to the
    caller's own row). Knowing who prayed would turn the prayer wall into an attendance
-   register, the opposite of its purpose.
+   register, the opposite of its purpose. The public total and the private "did I pray"
+   are kept as two separate facts: `prayer_requests.prayed_count` (a stored counter
+   maintained by a `SECURITY DEFINER` trigger on `prayer_prayed`, clamped at zero) and
+   `v_prayer_requests.i_prayed` (an `EXISTS` subquery that, under the view's
+   `security_invoker`, resolves to the caller's own row). This replaces the original
+   `count(*)` in the view, which ran under the caller's RLS and so always read 0 or 1 — a
+   real total is what the "N people prayed for your request" notification needs.
 
 3. **The last leader cannot simply leave.** Enforced in the database, not the client
    (trigger `enforce_group_has_leader` + `archive_group()`): a leader who is the only
@@ -114,9 +120,11 @@ themes; it does not guess from recency.
      (`purge_minor_messages()`, run nightly by pg_cron) — data minimisation where the risk
      is highest.
 
-These four live as a second migration (`20260101000001_decisions.sql`); the baseline
-schema above is unchanged. Their authorization and behaviour are covered by
-`supabase/tests/decisions_test.sql`, run alongside the 22-check suite.
+These four live as a second migration (`20260101000001_decisions.sql`), and the
+`prayed_count` fix for decision 2 as a third (`20260101000002_prayed_count.sql`); the
+baseline schema above is unchanged. Their authorization and behaviour are covered by
+`supabase/tests/decisions_test.sql` and `supabase/tests/prayer_count_test.sql`, run
+alongside the 22-check base suite (49 checks in total).
 
 ## What testing the policies found
 
