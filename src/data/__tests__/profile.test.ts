@@ -40,6 +40,12 @@ describe('parseProfile', () => {
     const p = parseProfile(JSON.stringify({ situations: ['Money', 3, null, 'Grief'] }), [...AVAILABLE]);
     expect(p.situations).toEqual(['Money', 'Grief']);
   });
+
+  it('keeps search history on by default and only an explicit false turns it off', () => {
+    expect(parseProfile(JSON.stringify({}), [...AVAILABLE]).keepSearchHistory).toBe(true);
+    expect(parseProfile(JSON.stringify({ keepSearchHistory: 'nope' }), [...AVAILABLE]).keepSearchHistory).toBe(true);
+    expect(parseProfile(JSON.stringify({ keepSearchHistory: false }), [...AVAILABLE]).keepSearchHistory).toBe(false);
+  });
 });
 
 describe('effectiveSituations', () => {

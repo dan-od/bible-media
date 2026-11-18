@@ -28,9 +28,16 @@ export interface Collection {
   saved: string[];
   /** Notes keyed by passage id. */
   notes: Record<string, PassageNote>;
+  /**
+   * How often the reader has engaged with each theme (tally keyed by theme tag,
+   * e.g. { Worry: 3, Hope: 1 }). Recorded when a search result is opened — this
+   * is the local signal that lets search shape the feed later. No count is ever
+   * shown; it only accumulates. Keyed by theme, not passage id.
+   */
+  engaged: Record<string, number>;
 }
 
-export const EMPTY_COLLECTION: Collection = { starred: [], saved: [], notes: {} };
+export const EMPTY_COLLECTION: Collection = { starred: [], saved: [], notes: {}, engaged: {} };
 
 const VISIBILITIES: NoteVisibility[] = ['private', 'circle'];
 
@@ -82,7 +89,14 @@ export function parseCollection(raw: string | null, validIds?: string[]): Collec
     }
   }
 
-  return { starred: ids(o.starred), saved: ids(o.saved), notes };
+  const engaged: Record<string, number> = {};
+  if (typeof o.engaged === 'object' && o.engaged !== null) {
+    for (const [theme, n] of Object.entries(o.engaged as Record<string, unknown>)) {
+      if (typeof n === 'number' && Number.isFinite(n) && n > 0) engaged[theme] = n;
+    }
+  }
+
+  return { starred: ids(o.starred), saved: ids(o.saved), notes, engaged };
 }
 
 function toggle(list: string[], id: string): string[] {
@@ -129,6 +143,24 @@ export function removeNote(c: Collection, id: string): Collection {
   const notes = { ...c.notes };
   delete notes[id];
   return { ...c, notes };
+}
+
+/**
+ * Record that the reader engaged with these themes (opening a search result).
+ * Adds to the running tally; de-duplicates the themes within a single call so
+ * one passage counts a theme once. An empty list is a no-op.
+ */
+export function recordEngagement(c: Collection, themes: string[]): Collection {
+  const unique = [...new Set(themes)];
+  if (unique.length === 0) return c;
+  const engaged = { ...c.engaged };
+  for (const t of unique) engaged[t] = (engaged[t] ?? 0) + 1;
+  return { ...c, engaged };
+}
+
+/** Engaged themes, most-engaged first (for shaping the feed later; no count shown). */
+export function engagedThemes(c: Collection): string[] {
+  return Object.keys(c.engaged).sort((a, b) => c.engaged[b] - c.engaged[a]);
 }
 
 /** Saved passage ids, most recent first (for the Saved list). */

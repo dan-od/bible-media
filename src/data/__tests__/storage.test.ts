@@ -56,6 +56,7 @@ describe('collection storage', () => {
       starred: ['psalm-31-24'],
       saved: ['joshua-1-9'],
       notes: { 'john-15-5': { body: 'Apart from Him, nothing.', visibility: 'private', updatedAt: 42 } },
+      engaged: { Worry: 2, Hope: 1 },
     };
     await saveCollection(collection);
     expect(await loadCollection()).toEqual(collection);

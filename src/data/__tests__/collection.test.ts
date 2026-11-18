@@ -1,10 +1,12 @@
 import {
   EMPTY_COLLECTION,
+  engagedThemes,
   getNote,
   isSaved,
   isStarred,
   notedIds,
   parseCollection,
+  recordEngagement,
   removeNote,
   savedIds,
   setNote,
@@ -69,6 +71,28 @@ describe('collection notes', () => {
   });
 });
 
+describe('engaged themes', () => {
+  it('tallies engaged themes and counts a passage’s theme once per open', () => {
+    let c = recordEngagement(EMPTY_COLLECTION, ['Worry', 'Money']);
+    c = recordEngagement(c, ['Worry', 'Worry']); // one open, duplicate in the list
+    expect(c.engaged).toEqual({ Worry: 2, Money: 1 });
+  });
+
+  it('orders engaged themes most-engaged first', () => {
+    let c = recordEngagement(EMPTY_COLLECTION, ['Hope']);
+    c = recordEngagement(c, ['Worry']);
+    c = recordEngagement(c, ['Worry']);
+    expect(engagedThemes(c)).toEqual(['Worry', 'Hope']);
+  });
+
+  it('is a no-op for an empty theme list and does not mutate the input', () => {
+    const before = EMPTY_COLLECTION;
+    expect(recordEngagement(before, [])).toBe(before);
+    recordEngagement({ ...EMPTY_COLLECTION, engaged: { Worry: 1 } }, ['Worry']);
+    expect(before.engaged).toEqual({});
+  });
+});
+
 describe('parseCollection', () => {
   it('returns empty for null or garbage', () => {
     expect(parseCollection(null)).toEqual(EMPTY_COLLECTION);
@@ -76,11 +100,17 @@ describe('parseCollection', () => {
     expect(parseCollection('42')).toEqual(EMPTY_COLLECTION);
   });
 
+  it('parses an engaged tally, dropping non-positive or non-numeric values', () => {
+    const raw = JSON.stringify({ engaged: { Worry: 3, Hope: 0, Grief: -1, Peace: 'x' } });
+    expect(parseCollection(raw).engaged).toEqual({ Worry: 3 });
+  });
+
   it('round-trips a real collection', () => {
     const c: Collection = {
       starred: ['a'],
       saved: ['b', 'c'],
       notes: { b: { body: 'note', visibility: 'circle', updatedAt: 5 } },
+      engaged: { Worry: 3 },
     };
     expect(parseCollection(JSON.stringify(c))).toEqual(c);
   });

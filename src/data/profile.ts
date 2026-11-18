@@ -29,6 +29,12 @@ export interface Profile {
   tunedThemes: string[];
   /** Whether the reader opted into the one daily "morning verse" notification. */
   morningVerse: boolean;
+  /**
+   * Whether recent searches are kept. On by default; when off, nothing is
+   * written to search history (the switch suppresses writes, see
+   * search-history.ts), it does not merely hide existing entries.
+   */
+  keepSearchHistory: boolean;
 }
 
 export const DEFAULT_PROFILE: Profile = {
@@ -39,6 +45,7 @@ export const DEFAULT_PROFILE: Profile = {
   translationId: DEFAULT_TRANSLATION_ID,
   tunedThemes: [],
   morningVerse: false,
+  keepSearchHistory: true,
 };
 
 const LEVEL_IDS = BIBLE_LEVELS.map((l) => l.id);
@@ -75,6 +82,8 @@ export function parseProfile(raw: string | null, available: TranslationId[]): Pr
     translationId,
     tunedThemes: strings(o.tunedThemes),
     morningVerse: o.morningVerse === true,
+    // Default on: only an explicit false turns history off.
+    keepSearchHistory: o.keepSearchHistory !== false,
   };
 }
 

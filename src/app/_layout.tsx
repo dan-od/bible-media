@@ -2,6 +2,7 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { CollectionProvider } from '@/hooks/use-collection';
@@ -39,13 +40,15 @@ function RootNavigator() {
 export default function RootLayout() {
   const { scheme } = useTheme();
   return (
-    <SafeAreaProvider>
-      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
-      <ProfileProvider>
-        <CollectionProvider>
-          <RootNavigator />
-        </CollectionProvider>
-      </ProfileProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
+        <ProfileProvider>
+          <CollectionProvider>
+            <RootNavigator />
+          </CollectionProvider>
+        </ProfileProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
