@@ -104,6 +104,26 @@ const BOOK_LOOKUP: Map<string, string> = (() => {
   return m;
 })();
 
+/**
+ * Bare family word → the books that share it, for numbered books only:
+ * "kings" → ["1 Kings", "2 Kings"], "corinthians" → ["1 Corinthians", ...].
+ * A bare word that is itself a single canonical book ("john" = the Gospel) is
+ * resolved by BOOK_LOOKUP first and never reaches this map, so the Gospel wins
+ * over the 1–3 John epistles.
+ */
+const FAMILY_LOOKUP: Map<string, string[]> = (() => {
+  const m = new Map<string, string[]>();
+  for (const [canonical] of BOOKS) {
+    const base = canonical.match(/^[123]\s+(.+)$/);
+    if (!base) continue;
+    const key = base[1].toLowerCase();
+    const arr = m.get(key) ?? [];
+    arr.push(canonical);
+    m.set(key, arr);
+  }
+  return m;
+})();
+
 const ORDINALS: Record<string, string> = {
   i: '1', ii: '2', iii: '3',
   '1st': '1', '2nd': '2', '3rd': '3',
@@ -165,6 +185,19 @@ export function parseReference(query: string): ParsedReference | null {
 /** The canonical book name for a passage's `book` field (seed uses "Psalm"). */
 function passageBook(passage: Passage): string | undefined {
   return BOOK_LOOKUP.get(normaliseBook(passage.book));
+}
+
+/**
+ * The canonical book(s) a WHOLE query names with no chapter — the ambiguous
+ * case. `[]` when the query isn't a bare book word (free text, or a reference
+ * with a chapter). A single book for "Job"/"Acts"/"Song"; the whole family for
+ * a numbered-book word like "Kings" (1 & 2 Kings) or "Corinthians".
+ */
+function bareBookCandidates(query: string): string[] {
+  const key = normaliseBook(query);
+  const direct = BOOK_LOOKUP.get(key);
+  if (direct) return [direct];
+  return FAMILY_LOOKUP.get(key) ?? [];
 }
 
 /**
@@ -270,6 +303,20 @@ export function resolveThemes(query: string): string[] {
 
 export type SearchKind = 'reference' | 'theme';
 
+/**
+ * A "Read the book of X" row pinned above the theme results when the query is a
+ * bare book name. The book name is an ordinary word too ("Job", "Acts"), so we
+ * never jump to the book silently — we offer it and let the reader choose.
+ */
+export interface ReferenceRow {
+  /** Canonical book name, e.g. "Job", "1 Kings". */
+  book: string;
+  /** Row label, e.g. "Read the book of Job". */
+  label: string;
+  /** The first passage we carry in the book, to open — or null if we carry none. */
+  passage: Passage | null;
+}
+
 export interface SearchResult {
   kind: SearchKind;
   /** Heading shown above the results, e.g. "Psalm 31:24" or "4 passages on worry and money". */
@@ -277,6 +324,12 @@ export interface SearchResult {
   /** Themes the query matched (theme kind) — recorded on open to shape the feed. */
   themes: string[];
   passages: Passage[];
+  /**
+   * Book row(s) to pin above the theme results — only for a bare book name,
+   * which is ambiguous. Usually one; a numbered-book family word ("Kings")
+   * yields one per book (1 Kings, 2 Kings).
+   */
+  references?: ReferenceRow[];
 }
 
 /** Lower-case theme labels joined naturally: "worry and money". */
@@ -287,17 +340,35 @@ function joinThemes(themes: string[]): string {
   return `${labels.slice(0, -1).join(', ')} and ${labels[labels.length - 1]}`;
 }
 
+/** The book row(s) for a bare book name — "Read the book of X" per candidate. */
+function bookRows(books: string[]): ReferenceRow[] {
+  return books.map((book) => ({
+    book,
+    label: `Read the book of ${book}`,
+    passage: getPassages().find((p) => passageBook(p) === book) ?? null,
+  }));
+}
+
 /**
- * Run a query. A reference resolves to (at most) one passage; anything else is
- * a theme lookup. An empty query returns an empty theme result (the screen
- * shows recent searches instead). No scores, no counts beyond the heading.
+ * Run a query. Three shapes:
+ *
+ *  - A reference WITH a chapter ("Job 3", "1 tim 6") is unambiguous: it
+ *    resolves straight through to (at most) one passage.
+ *  - A bare book name ("Job", "Kings") is ambiguous — the book name is an
+ *    ordinary word too — so it is NEVER resolved silently. It runs the theme
+ *    lookup like any other word AND pins a "Read the book of X" row above the
+ *    results, so the reader sees both.
+ *  - Anything else is a plain theme lookup.
+ *
+ * An empty query returns an empty theme result (the screen shows recent
+ * searches instead). No scores, no counts beyond the heading.
  */
 export function searchQuery(query: string): SearchResult {
   const q = query.trim();
   if (!q) return { kind: 'theme', heading: '', themes: [], passages: [] };
 
   const ref = parseReference(q);
-  if (ref) {
+  if (ref && ref.chapter !== undefined) {
     const passage = resolveReference(ref);
     return {
       kind: 'reference',
@@ -315,11 +386,16 @@ export function searchQuery(query: string): SearchResult {
   const effective = themes.filter((t) => getPassagesByTheme(t).length > 0);
   const n = passages.length;
   const heading = n === 0 ? '' : `${n} ${n === 1 ? 'passage' : 'passages'} on ${joinThemes(effective)}`;
-  return { kind: 'theme', heading, themes, passages };
+
+  // A bare book name pins its "Read the book of X" row(s) above the themes.
+  const candidates = bareBookCandidates(q);
+  const references = candidates.length > 0 ? bookRows(candidates) : undefined;
+
+  return { kind: 'theme', heading, themes, passages, ...(references ? { references } : {}) };
 }
 
 /** Union of passages tagged with any of `themes`, in stable seed order. */
-function passagesForThemes(themes: string[]): Passage[] {
+export function passagesForThemes(themes: string[]): Passage[] {
   const seen = new Set<string>();
   const out: Passage[] = [];
   for (const theme of themes) {

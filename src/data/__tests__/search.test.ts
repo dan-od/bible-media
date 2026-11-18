@@ -1,4 +1,11 @@
-import { parseReference, resolveReference, resolveThemes, rowTag, searchQuery } from '@/data/search';
+import {
+  parseReference,
+  passagesForThemes,
+  resolveReference,
+  resolveThemes,
+  rowTag,
+  searchQuery,
+} from '@/data/search';
 import { getPassageById } from '@/data/verseStore';
 
 describe('parseReference', () => {
@@ -130,6 +137,54 @@ describe('searchQuery', () => {
 
   it('is empty for a blank query (the screen shows recent searches instead)', () => {
     expect(searchQuery('   ').passages).toEqual([]);
+  });
+});
+
+// A bare book name is ambiguous — every one of these is also an ordinary
+// English word (and "job" is one of our own onboarding situations). It must
+// never resolve to the book silently: it shows a "Read the book of X" row
+// AND the theme results together, never the reference alone.
+describe('searchQuery — bare book names are ambiguous', () => {
+  // [query, the book(s) the row offers] — "kings" is two books (1 & 2 Kings).
+  const COLLISIONS: [string, string[]][] = [
+    ['Job', ['Job']],
+    ['acts', ['Acts']],
+    ['mark', ['Mark']],
+    ['james', ['James']],
+    ['judges', ['Judges']],
+    ['numbers', ['Numbers']],
+    ['kings', ['1 Kings', '2 Kings']],
+    ['song', ['Song of Songs']],
+    ['revelation', ['Revelation']],
+  ];
+
+  it.each(COLLISIONS)('shows the book row and the theme results together for "%s"', (query, books) => {
+    const r = searchQuery(query);
+
+    // Never the reference alone: it runs the theme lookup, not a silent jump.
+    expect(r.kind).toBe('theme');
+
+    // The "Read the book of X" row(s) are pinned, one per candidate book.
+    expect(r.references?.map((row) => row.book)).toEqual(books);
+    expect(r.references?.map((row) => row.label)).toEqual(books.map((b) => `Read the book of ${b}`));
+
+    // And the theme results sit alongside — exactly what the word maps to
+    // (the row is never in place of them).
+    expect(r.passages).toEqual(passagesForThemes(resolveThemes(query)));
+  });
+
+  it('"job" reaches the New job passages, not the Book of Job', () => {
+    const r = searchQuery('job');
+    expect(r.references?.map((row) => row.book)).toEqual(['Job']);
+    expect(r.themes).toEqual(['New job']);
+    expect(r.passages.map((p) => p.id)).toEqual(['psalm-31-24', 'joshua-1-9']);
+    expect(r.passages.length).toBeGreaterThan(0);
+  });
+
+  it('a reference WITH a chapter still resolves straight through (unambiguous)', () => {
+    const r = searchQuery('Job 3');
+    expect(r.kind).toBe('reference');
+    expect(r.references).toBeUndefined();
   });
 });
 

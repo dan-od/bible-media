@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Screen, ThemedText } from '@/components/themed';
 import { Fonts, MinTapTarget, Spacing } from '@/constants/theme';
-import { rowTag, searchQuery } from '@/data/search';
+import { rowTag, searchQuery, type ReferenceRow } from '@/data/search';
 import type { Passage } from '@/data/types';
 import { renderPassage } from '@/data/verseStore';
 import { useCollection } from '@/hooks/use-collection';
@@ -59,18 +59,37 @@ export default function SearchScreen() {
     router.navigate('/');
   };
 
+  // Opening a "Read the book of X" row: record the search, record the book's
+  // themes if we carry a passage in it, and jump to the feed.
+  const openBook = (row: ReferenceRow) => {
+    if (trimmed) record(trimmed);
+    if (row.passage) recordEngagement(row.passage.themeTags);
+    tapLight();
+    setQuery('');
+    router.navigate('/');
+  };
+
   const runRecent = (q: string) => setQuery(q);
   const removeOne = (q: string) => {
     tapLight();
     remove(q);
   };
 
-  const showResults = trimmed !== '' && result.passages.length > 0;
-  const showEmpty = trimmed !== '' && result.passages.length === 0;
+  const references = result.references ?? [];
+  const hasRefs = references.length > 0;
+  // A bare book name shows its book row(s) even when no feeling matched, so it
+  // is not the (centred) no-results state. Only a genuine miss centres.
+  const showResults = trimmed !== '' && (result.passages.length > 0 || hasRefs);
+  const showEmpty = trimmed !== '' && result.passages.length === 0 && !hasRefs;
   const showRecent = trimmed === '' && history.entries.length > 0;
 
   // Live-region text: the honest heading (no scores), announced on change.
-  const announce = showResults ? result.heading : showEmpty ? 'Nothing matched that' : '';
+  const refAnnounce = references.map((r) => r.book).join(' and ');
+  const announce = showResults
+    ? result.heading || refAnnounce
+    : showEmpty
+      ? 'Nothing matched that'
+      : '';
 
   return (
     <Screen>
@@ -123,32 +142,68 @@ export default function SearchScreen() {
       </Text>
 
       {showResults ? (
-        <ResultsFade heading={result.heading}>
+        <ResultsFade heading={result.heading || refAnnounce}>
           <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-            <Text style={[styles.caps, { color: colors.textSecondary }]}>{result.heading}</Text>
-            {result.passages.map((p) => {
-              const tag = rowTag(p, result.themes);
-              return (
-                <Pressable
-                  key={p.id}
-                  onPress={() => open(p)}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Open ${p.reference}`}
-                  style={[styles.resultRow, { borderTopColor: colors.hairline }]}>
-                  <View style={styles.resultText}>
-                    <Text style={[styles.caps, { color: colors.textSecondary }]}>{p.reference}</Text>
-                    <Text style={[styles.opening, { color: colors.text }]} numberOfLines={2}>
-                      {openingLine(p)}
-                    </Text>
-                    <Text style={[styles.tag, { color: semantic.starred }]}>{tag}</Text>
-                  </View>
-                  <Feather name="chevron-right" size={18} color={colors.textSecondary} style={styles.chev} />
-                </Pressable>
-              );
-            })}
-            <ThemedText variant="body" muted style={styles.footerNote}>
-              What you open from here shapes your feed.
-            </ThemedText>
+            {/* Bare book name: the "Read the book of X" row(s) pinned on top. */}
+            {hasRefs && (
+              <>
+                <Text style={[styles.caps, { color: colors.textSecondary }]}>Reference</Text>
+                {references.map((row) => (
+                  <Pressable
+                    key={row.book}
+                    onPress={() => openBook(row)}
+                    accessibilityRole="button"
+                    accessibilityLabel={row.label}
+                    style={[styles.resultRow, { borderTopColor: colors.hairline }]}>
+                    <View style={styles.resultText}>
+                      <Text style={[styles.opening, { color: colors.text }]}>{row.label}</Text>
+                    </View>
+                    <Feather name="chevron-right" size={18} color={colors.textSecondary} style={styles.chev} />
+                  </Pressable>
+                ))}
+              </>
+            )}
+
+            {result.passages.length > 0 && (
+              <>
+                <Text style={[styles.caps, hasRefs && styles.sectionGap, { color: colors.textSecondary }]}>
+                  {result.heading}
+                </Text>
+                {result.passages.map((p) => {
+                  const tag = rowTag(p, result.themes);
+                  return (
+                    <Pressable
+                      key={p.id}
+                      onPress={() => open(p)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Open ${p.reference}`}
+                      style={[styles.resultRow, { borderTopColor: colors.hairline }]}>
+                      <View style={styles.resultText}>
+                        <Text style={[styles.caps, { color: colors.textSecondary }]}>{p.reference}</Text>
+                        <Text style={[styles.opening, { color: colors.text }]} numberOfLines={2}>
+                          {openingLine(p)}
+                        </Text>
+                        <Text style={[styles.tag, { color: semantic.starred }]}>{tag}</Text>
+                      </View>
+                      <Feather name="chevron-right" size={18} color={colors.textSecondary} style={styles.chev} />
+                    </Pressable>
+                  );
+                })}
+              </>
+            )}
+
+            {/* Bare book that matched no feeling: say so plainly, don't centre. */}
+            {hasRefs && result.passages.length === 0 && (
+              <ThemedText variant="body" muted style={styles.footerNote}>
+                No feeling matched “{trimmed}”. Open the book above, or try a word for how you are.
+              </ThemedText>
+            )}
+
+            {result.passages.length > 0 && (
+              <ThemedText variant="body" muted style={styles.footerNote}>
+                What you open from here shapes your feed.
+              </ThemedText>
+            )}
           </ScrollView>
         </ResultsFade>
       ) : showEmpty ? (
@@ -312,6 +367,7 @@ const styles = StyleSheet.create({
   fade: { flex: 1 },
   scroll: { paddingHorizontal: Spacing.five, paddingBottom: Spacing.seven, gap: Spacing.one },
   caps: { fontFamily: Fonts.sansSemiBold, fontSize: 11, letterSpacing: 1.3, textTransform: 'uppercase' },
+  sectionGap: { paddingTop: Spacing.four },
 
   // Result rows
   resultRow: {
