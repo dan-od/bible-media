@@ -5,7 +5,13 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 
 import { findReferences, searchQuery } from '@/data/search';
-import { EXAMPLE_REFERENCE, exampleReference, SEARCH_COPY, SUGGESTED_WORDS } from '@/data/search-hints';
+import {
+  EXAMPLE_REFERENCE,
+  EXAMPLE_SHORTLIST,
+  exampleReference,
+  SEARCH_COPY,
+  SUGGESTED_WORDS,
+} from '@/data/search-hints';
 import type { Passage } from '@/data/types';
 import { getPassageById, getPassages } from '@/data/verseStore';
 
@@ -33,17 +39,51 @@ describe('the example reference', () => {
     expect(resolvesToCarriedPassage(EXAMPLE_REFERENCE!)).toBe(true);
   });
 
-  it('is the first passage in canonical book order, not random and not library order', () => {
+  it('is the shortlist, in this order', () => {
+    expect(EXAMPLE_SHORTLIST).toEqual([
+      'John 3',
+      'Psalm 23',
+      'Romans 8',
+      'Philippians 4',
+      'Psalm 91',
+      'Matthew 6',
+      '1 Corinthians 13',
+    ]);
+    // Each entry is a chapter reference the parser reads.
+    for (const ref of EXAMPLE_SHORTLIST) expect(findReferences(ref)).toEqual([ref]);
+  });
+
+  it('is a well-known reference the library carries, preferring the shorter when two qualify', () => {
+    // The seed library carries Philippians 4 and Matthew 6 from the shortlist;
+    // Matthew 6 is the shorter, so it fits the placeholder at large text sizes.
+    expect(EXAMPLE_REFERENCE).toBe('Matthew 6');
+    expect(exampleReference(getPassages())).toBe('Matthew 6');
+  });
+
+  it('is deterministic: library order makes no difference', () => {
     const passages = getPassages();
-    const shuffled = [...passages].reverse();
-    expect(exampleReference(shuffled)).toBe(exampleReference(passages));
-    // Deuteronomy is the earliest book the seed library carries.
-    expect(exampleReference(passages)).toBe('Deuteronomy 31');
+    expect(exampleReference([...passages].reverse())).toBe(exampleReference(passages));
   });
 
   it('follows the library when it changes', () => {
-    const withoutDeut = getPassages().filter((p) => p.book !== 'Deuteronomy');
-    expect(exampleReference(withoutDeut)).toBe('Joshua 1');
+    // Without Matthew 6, the only qualifying entry left is Philippians 4.
+    const withoutMatthew = getPassages().filter((p) => p.book !== 'Matthew');
+    expect(exampleReference(withoutMatthew)).toBe('Philippians 4');
+    // Equal length: list order decides (Psalm 23 comes before Romans 8 and Psalm 91).
+    const stub = (book: string, chapter: number): Passage => ({ ...getPassages()[0], id: `${book}-${chapter}`, book, chapter });
+    expect(exampleReference([stub('Psalm', 91), stub('Romans', 8), stub('Psalm', 23)])).toBe('Psalm 23');
+    // A carried chapter of a shortlisted book is not enough: the chapter must match.
+    expect(exampleReference([stub('John', 15), stub('Psalm', 91)])).toBe('Psalm 91');
+  });
+
+  it('falls back to canonical book order when the library carries none of the shortlist', () => {
+    const noneShortlisted = getPassages().filter(
+      (p) => !['Matthew', 'Philippians'].includes(p.book),
+    );
+    expect(noneShortlisted.length).toBeGreaterThan(0);
+    // Deuteronomy is the earliest book left; never an empty hint.
+    expect(exampleReference(noneShortlisted)).toBe('Deuteronomy 31');
+    expect(exampleReference([...noneShortlisted].reverse())).toBe('Deuteronomy 31');
     const onlyJohn = getPassages().filter((p: Passage) => p.book === 'John');
     expect(exampleReference(onlyJohn)).toBe('John 15');
   });
