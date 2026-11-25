@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Screen, ThemedText } from '@/components/themed';
 import { Fonts, MinTapTarget, Spacing } from '@/constants/theme';
 import { rowTag, searchQuery, themesToRecord, type ReferenceRow } from '@/data/search';
+import { SEARCH_COPY, SUGGESTED_WORDS } from '@/data/search-hints';
 import type { Passage } from '@/data/types';
 import { renderPassage } from '@/data/verseStore';
 import { useCollection } from '@/hooks/use-collection';
@@ -27,7 +28,6 @@ import { useSearchHistory } from '@/hooks/use-search-history';
 import { useTheme } from '@/hooks/use-theme';
 import { tapLight } from '@/lib/haptics';
 
-const SUGGESTIONS = ['afraid', 'alone', 'thankful'];
 
 /** A fresh id for each jump to the feed, so reopening the same passage still
  * scrolls to it. Only ever called from a press handler, never during render. */
@@ -107,7 +107,7 @@ export default function SearchScreen() {
             onSubmitEditing={() => {
               if (trimmed) record(trimmed);
             }}
-            placeholder="A feeling, a topic, or John 3"
+            placeholder={SEARCH_COPY.placeholder}
             placeholderTextColor={colors.textSecondary}
             style={[styles.input, { color: colors.text, fontFamily: Fonts.sans }]}
             returnKeyType="search"
@@ -211,8 +211,8 @@ export default function SearchScreen() {
             {hasRefs && result.passages.length === 0 && (
               <ThemedText variant="body" muted style={styles.footerNote}>
                 {references.some((r) => r.passage)
-                  ? `No feeling matched “${trimmed}”. Open the book above, or try a word for how you are.`
-                  : `No feeling matched “${trimmed}”. Try a word for how you are, like “afraid” or “alone”.`}
+                  ? `No feeling matched “${trimmed}”. ${SEARCH_COPY.noFeelingWithBook}`
+                  : `No feeling matched “${trimmed}”. ${SEARCH_COPY.noFeelingWithoutBook}`}
               </ThemedText>
             )}
 
@@ -230,10 +230,10 @@ export default function SearchScreen() {
             Nothing matched that
           </ThemedText>
           <ThemedText variant="body" muted style={styles.emptyBody}>
-            Try a feeling (“afraid”, “alone”), a topic, or a reference like John 3.
+            {SEARCH_COPY.emptyBody}
           </ThemedText>
           <View style={styles.chips}>
-            {SUGGESTIONS.map((s) => (
+            {SUGGESTED_WORDS.map((s) => (
               <Chip key={s} label={s} onPress={() => setQuery(s)} />
             ))}
           </View>
@@ -268,11 +268,10 @@ export default function SearchScreen() {
         // centred (only the no-results state centres).
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           <ThemedText variant="body" muted style={styles.startBody}>
-            Find Scripture by what you’re feeling, not only by reference. Try a word for how you are,
-            or a passage like John 3.
+            {SEARCH_COPY.startBody}
           </ThemedText>
           <View style={[styles.chips, styles.chipsStart]}>
-            {SUGGESTIONS.map((s) => (
+            {SUGGESTED_WORDS.map((s) => (
               <Chip key={s} label={s} onPress={() => setQuery(s)} />
             ))}
           </View>

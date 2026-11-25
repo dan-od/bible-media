@@ -202,6 +202,45 @@ export function parseReference(query: string): ParsedReference | null {
   return { book, chapter, verse, verseEnd, reference };
 }
 
+/** canonical name → position in canonical (Genesis-first) order. */
+const CANONICAL_INDEX: Map<string, number> = new Map(BOOKS.map(([canonical], i) => [canonical, i]));
+
+/**
+ * A book's position in canonical order (Genesis = 0), accepting any name the
+ * parser accepts ("Psalm", "1 Cor"). Unknown books sort last.
+ */
+export function canonicalBookIndex(book: string): number {
+  const canonical = BOOK_LOOKUP.get(normaliseBook(book));
+  return canonical === undefined ? BOOKS.length : CANONICAL_INDEX.get(canonical)!;
+}
+
+/**
+ * The chapter references written inside a piece of prose ("…or a passage like
+ * John 3." → ["John 3"]). For each chapter number it tries the words before it,
+ * longest first, so "or 1 Cor 13" yields "1 Cor 13", not "or 1". Used to check
+ * that every reference the UI suggests is one the library carries.
+ */
+export function findReferences(text: string): string[] {
+  const found: string[] = [];
+  const chapterPattern = /\d+(?:\s*[:.]\s*\d+(?:\s*[-–]\s*\d+)?)?/g;
+  for (const m of text.matchAll(chapterPattern)) {
+    const words = text.slice(0, m.index).trim().split(/\s+/).slice(-4);
+    for (let take = words.length; take >= 1; take--) {
+      const book = words
+        .slice(-take)
+        .join(' ')
+        .replace(/[^\w\s.]+$/, '');
+      const candidate = `${book} ${m[0]}`;
+      const ref = parseReference(candidate);
+      if (ref && ref.chapter !== undefined) {
+        found.push(candidate);
+        break;
+      }
+    }
+  }
+  return found;
+}
+
 /** The canonical book name for a passage's `book` field (seed uses "Psalm"). */
 function passageBook(passage: Passage): string | undefined {
   return BOOK_LOOKUP.get(normaliseBook(passage.book));
