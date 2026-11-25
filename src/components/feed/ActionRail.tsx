@@ -21,22 +21,33 @@ const ITEMS: { action: RailAction; icon: keyof typeof Feather.glyphMap; label: s
   { action: 'context', icon: 'info', label: 'Context' },
 ];
 
+/** Rail geometry at a given scale (1 = default text size): 44pt buttons, 23pt glyphs, 8pt gaps. */
+export function railMetrics(scale: number) {
+  const button = Math.round(MinTapTarget * scale);
+  const gap = Math.round(8 * scale);
+  return { button, icon: Math.round(23 * scale), gap, height: ITEMS.length * button + (ITEMS.length - 1) * gap };
+}
+
 export function ActionRail({
   starred,
   saved,
   hasNote,
   onAction,
+  scale = 1,
 }: {
   starred: boolean;
   saved: boolean;
   hasNote: boolean;
   onAction: (action: RailAction) => void;
+  /** Grows the buttons and glyphs with the system text size (never below 44pt). */
+  scale?: number;
 }) {
+  const m = railMetrics(scale);
   const { colors } = useTheme();
   const activeFor = (action: RailAction) =>
     (action === 'star' && starred) || (action === 'save' && saved) || (action === 'note' && hasNote);
   return (
-    <View style={styles.rail}>
+    <View style={[styles.rail, { gap: m.gap }]}>
       {ITEMS.map(({ action, icon, label }) => {
         const on = activeFor(action);
         const toggleState = action === 'star' || action === 'save' || action === 'note';
@@ -48,9 +59,9 @@ export function ActionRail({
             accessibilityLabel={label}
             accessibilityState={toggleState ? { selected: on } : undefined}
             hitSlop={6}
-            style={styles.button}>
+            style={[styles.button, { width: m.button, height: m.button }]}>
             {/* Gold colour marks the active state (glyph-font icons have no fill). */}
-            <Feather name={icon} size={23} color={on ? colors.gold : colors.text} />
+            <Feather name={icon} size={m.icon} color={on ? colors.gold : colors.text} />
           </Pressable>
         );
       })}
@@ -59,7 +70,7 @@ export function ActionRail({
 }
 
 const styles = StyleSheet.create({
-  rail: { alignItems: 'center', gap: 8 },
+  rail: { alignItems: 'center' },
   button: {
     width: MinTapTarget,
     height: MinTapTarget,

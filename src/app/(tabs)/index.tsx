@@ -1,6 +1,6 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Platform, ScrollView, StyleSheet, useWindowDimensions, View, type ScrollViewInstance } from 'react-native';
+import { Animated, Platform, StyleSheet, useWindowDimensions, View, type ScrollViewInstance } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CompareSheet } from '@/components/feed/CompareSheet';
@@ -70,6 +70,27 @@ export default function FeedScreen() {
     if (list.some((h) => h === undefined)) return undefined;
     return pageSnapOffsets(list as number[], viewport);
   }, [feed, pageHeights, viewport]);
+
+  // Each passage's sticky rail is driven from the feed's scroll offset (on the
+  // native thread where there is one) and where that passage starts in the feed.
+  const [scrollY] = useState(() => new Animated.Value(0));
+  const lastY = useRef(0);
+  const onScroll = useMemo(
+    () =>
+      Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+        useNativeDriver: Platform.OS !== 'web',
+      }),
+    [scrollY],
+  );
+  const pageTops = useMemo(() => {
+    const tops: Record<string, number> = {};
+    let y = 0;
+    for (const item of feed) {
+      tops[item.passage.id] = y;
+      y += pageHeights[item.passage.id] ?? pageMinHeight;
+    }
+    return tops;
+  }, [feed, pageHeights, pageMinHeight]);
   const pending = useRef<string | null>(null);
   const handledAt = useRef<string | undefined>(undefined);
 
@@ -166,10 +187,26 @@ export default function FeedScreen() {
           </ThemedText>
         </View>
       ) : (
-        <ScrollView
+        <Animated.ScrollView
           ref={scrollRef}
           style={styles.feedArea}
           onLayout={(e) => setViewport(Math.round(e.nativeEvent.layout.height))}
+          onScroll={onScroll}
+          // A text-size change re-lays out every passage under a resting scroll
+          // position, and the rails only follow scroll events: nudge the offset
+          // so they re-read it.
+          onContentSizeChange={() => {
+            const y = lastY.current;
+            scrollRef.current?.scrollTo({ y: y + 1, animated: false });
+            requestAnimationFrame(() => scrollRef.current?.scrollTo({ y, animated: false }));
+          }}
+          onMomentumScrollEnd={(e) => {
+            lastY.current = e.nativeEvent.contentOffset.y;
+          }}
+          onScrollEndDrag={(e) => {
+            lastY.current = e.nativeEvent.contentOffset.y;
+          }}
+          scrollEventThrottle={16}
           // Until every page is measured, plain paging (pages are one feed area
           // tall unless the text is very large, so it lines up).
           pagingEnabled={!snapOffsets}
@@ -200,11 +237,16 @@ export default function FeedScreen() {
                   selectedPhrases={phrases[id] ?? EMPTY}
                   onTogglePhrase={(key) => togglePhrase(id, key)}
                   onAction={(action) => handleAction(id, action)}
+                  fontScale={fontScale}
+                  scrollY={scrollY}
+                  pageTop={pageTops[id] ?? 0}
+                  pageHeight={pageHeights[id] ?? 0}
+                  feedAreaHeight={pageMinHeight}
                 />
               </View>
             );
           })}
-        </ScrollView>
+        </Animated.ScrollView>
       )}
 
       {sheet && activeSheetPassage && sheet.type === 'compare' && (
