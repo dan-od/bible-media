@@ -54,7 +54,8 @@
     "test:watch": "jest --watch",
     "test:rls": "./scripts/rls-test.sh",
     "db:reset": "npx supabase db reset",
-    "db:test": "npx supabase db reset && DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:55322/postgres ./scripts/rls-test.sh --supabase"
+    "db:test": "npx supabase db reset && DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:55322/postgres ./scripts/rls-test.sh --supabase",
+    "measure:words": "WRITE_WORD_METRICS=1 jest src/data/__tests__/word-metrics.test.ts"
   },
   "private": true
 }

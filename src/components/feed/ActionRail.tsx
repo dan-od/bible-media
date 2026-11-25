@@ -8,10 +8,12 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { MinTapTarget } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { railMetrics } from '@/lib/verse-fit';
 
 export type RailAction = 'star' | 'save' | 'note' | 'repost' | 'send' | 'versions' | 'context';
 
-const ITEMS: { action: RailAction; icon: keyof typeof Feather.glyphMap; label: string }[] = [
+/** The seven actions, in rail order (the collapsed sheet uses the same list). */
+export const RAIL_ITEMS: { action: RailAction; icon: keyof typeof Feather.glyphMap; label: string }[] = [
   { action: 'star', icon: 'star', label: 'Star' },
   { action: 'save', icon: 'bookmark', label: 'Save' },
   { action: 'note', icon: 'edit-3', label: 'Write a note' },
@@ -21,12 +23,13 @@ const ITEMS: { action: RailAction; icon: keyof typeof Feather.glyphMap; label: s
   { action: 'context', icon: 'info', label: 'Context' },
 ];
 
-/** Rail geometry at a given scale (1 = default text size): 44pt buttons, 23pt glyphs, 8pt gaps. */
-export function railMetrics(scale: number) {
-  const button = Math.round(MinTapTarget * scale);
-  const gap = Math.round(8 * scale);
-  return { button, icon: Math.round(23 * scale), gap, height: ITEMS.length * button + (ITEMS.length - 1) * gap };
+/** Whether an action is a toggle that is currently on (gold). */
+export function isActionOn(action: RailAction, state: { starred: boolean; saved: boolean; hasNote: boolean }) {
+  return (action === 'star' && state.starred) || (action === 'save' && state.saved) || (action === 'note' && state.hasNote);
 }
+
+/** Star, Save and Note carry a selected state; the rest are plain buttons. */
+export const isToggleAction = (action: RailAction) => action === 'star' || action === 'save' || action === 'note';
 
 export function ActionRail({
   starred,
@@ -44,13 +47,11 @@ export function ActionRail({
 }) {
   const m = railMetrics(scale);
   const { colors } = useTheme();
-  const activeFor = (action: RailAction) =>
-    (action === 'star' && starred) || (action === 'save' && saved) || (action === 'note' && hasNote);
   return (
     <View style={[styles.rail, { gap: m.gap }]}>
-      {ITEMS.map(({ action, icon, label }) => {
-        const on = activeFor(action);
-        const toggleState = action === 'star' || action === 'save' || action === 'note';
+      {RAIL_ITEMS.map(({ action, icon, label }) => {
+        const on = isActionOn(action, { starred, saved, hasNote });
+        const toggleState = isToggleAction(action);
         return (
           <Pressable
             key={action}

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Platform, StyleSheet, useWindowDimensions, View, type ScrollViewInstance } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ActionSheet } from '@/components/feed/ActionSheet';
 import { CompareSheet } from '@/components/feed/CompareSheet';
 import { ContextDeck } from '@/components/feed/ContextDeck';
 import { FeedCard } from '@/components/feed/FeedCard';
@@ -11,7 +12,7 @@ import { NoteSheet } from '@/components/feed/NoteSheet';
 import { type RailAction } from '@/components/feed/ActionRail';
 import { Toast } from '@/components/feed/Toast';
 import { Screen, ThemedText } from '@/components/themed';
-import { Fonts, ReadingColumnEm, RootFontSize, Spacing } from '@/constants/theme';
+import { Fonts, Spacing } from '@/constants/theme';
 import { engagedThemes, getNote, isSaved, isStarred } from '@/data/collection';
 import { buildFeed } from '@/data/feed';
 import { effectiveSituations } from '@/data/profile';
@@ -19,10 +20,11 @@ import type { TranslationId } from '@/data/types';
 import { renderPassage } from '@/data/verseStore';
 import { selection, tapLight } from '@/lib/haptics';
 import { pageSnapOffsets } from '@/lib/snap';
+import { PAGE_PADDING, verseLayout } from '@/lib/verse-fit';
 import { useCollection } from '@/hooks/use-collection';
 import { useProfile } from '@/hooks/use-profile';
 
-type Sheet = { type: 'compare' | 'context' | 'note'; passageId: string } | null;
+type Sheet = { type: 'actions' | 'compare' | 'context' | 'note'; passageId: string } | null;
 
 export default function FeedScreen() {
   const insets = useSafeAreaInsets();
@@ -30,9 +32,10 @@ export default function FeedScreen() {
   const { collection, toggleStar, toggleSave, setNote } = useCollection();
 
   // Window dimensions are available on first render (no onLayout, no blank
-  // frame). fontScale makes the reading measure grow with the system text size.
-  const { height: windowHeight, fontScale } = useWindowDimensions();
-  const columnMaxWidth = ReadingColumnEm * RootFontSize * fontScale;
+  // frame). The column, the verse size and whether the rail fits beside it all
+  // follow the width and the system text size (see lib/verse-fit).
+  const { width: windowWidth, height: windowHeight, fontScale } = useWindowDimensions();
+  const layout = useMemo(() => verseLayout({ windowWidth, fontScale }), [windowWidth, fontScale]);
 
   // Situations lead; themes opened from search come next. `engaged` keeps its
   // identity across star/save/note changes, so only a search open reorders.
@@ -233,11 +236,11 @@ export default function FeedScreen() {
                   starred={isStarred(collection, id)}
                   saved={isSaved(collection, id)}
                   hasNote={!!getNote(collection, id)}
-                  columnMaxWidth={columnMaxWidth}
+                  layout={layout}
                   selectedPhrases={phrases[id] ?? EMPTY}
                   onTogglePhrase={(key) => togglePhrase(id, key)}
                   onAction={(action) => handleAction(id, action)}
-                  fontScale={fontScale}
+                  onOpenActions={() => setSheet({ type: 'actions', passageId: id })}
                   scrollY={scrollY}
                   pageTop={pageTops[id] ?? 0}
                   pageHeight={pageHeights[id] ?? 0}
@@ -249,6 +252,17 @@ export default function FeedScreen() {
         </Animated.ScrollView>
       )}
 
+      {sheet && activeSheetPassage && sheet.type === 'actions' && (
+        <ActionSheet
+          reference={activeSheetPassage.reference}
+          starred={isStarred(collection, activeSheetPassage.id)}
+          saved={isSaved(collection, activeSheetPassage.id)}
+          hasNote={!!getNote(collection, activeSheetPassage.id)}
+          scale={layout.railScale}
+          onAction={(action) => handleAction(activeSheetPassage.id, action)}
+          onClose={() => setSheet(null)}
+        />
+      )}
       {sheet && activeSheetPassage && sheet.type === 'compare' && (
         <CompareSheet
           passage={activeSheetPassage}
@@ -295,7 +309,7 @@ const styles = StyleSheet.create({
   feedArea: { flex: 1 },
   // Each passage fills the feed area (minHeight, so it still grows with the
   // text) and its column is vertically centred at every width.
-  page: { justifyContent: 'center', paddingHorizontal: Spacing.five },
+  page: { justifyContent: 'center', paddingHorizontal: PAGE_PADDING },
   circle: { flex: 1, paddingHorizontal: Spacing.five, justifyContent: 'center', gap: Spacing.three },
   circleTitle: { fontSize: 30, lineHeight: 36 },
   circleBody: { fontSize: 15, lineHeight: 22, fontFamily: Fonts.sans },

@@ -13,11 +13,14 @@ import { useTheme } from '@/hooks/use-theme';
 
 export function BottomSheet({
   title,
+  titleMaxFontSizeMultiplier,
   onClose,
   children,
   footer,
 }: {
   title: string;
+  /** Caps how far the system text size scales the title (unset: no cap). */
+  titleMaxFontSizeMultiplier?: number;
   onClose: () => void;
   children: React.ReactNode;
   footer?: React.ReactNode;
@@ -57,7 +60,9 @@ export function BottomSheet({
         ]}>
         <View style={[styles.grab, { backgroundColor: colors.hairline }]} />
         <View style={styles.head}>
-          <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
+          <Text maxFontSizeMultiplier={titleMaxFontSizeMultiplier} style={[styles.title, { color: colors.text }]}>
+            {title}
+          </Text>
           <Pressable
             onPress={onClose}
             accessibilityRole="button"

@@ -6,12 +6,15 @@
  * Tap-a-phrase: each clause of the passage is tappable and toggles a highlight,
  * so a reader can pick out a phrase (to note or share later). Nothing here sets
  * allowFontScaling=false and there are no fixed heights — the block grows with
- * the system text size.
+ * the system text size, up to the measured ceiling at which the library's
+ * widest word still fits the column (lib/verse-fit), so no word of Scripture is
+ * ever broken mid-word.
  */
 import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Fonts } from '@/constants/theme';
+import { LEAD_IN_FONT_SIZE, VERSE_FONT_SIZE } from '@/lib/verse-fit';
 import { useTheme } from '@/hooks/use-theme';
 import type { VerseText } from '@/data/types';
 
@@ -38,13 +41,18 @@ export function toPhrases(text: string): string[] {
 export function VerseBlock({
   leadIn,
   verses,
-  fontSize = 34,
+  fontSize = VERSE_FONT_SIZE,
+  verseMaxMultiplier,
+  leadInMaxMultiplier,
   selected,
   onTogglePhrase,
 }: {
   leadIn: VerseText;
   verses: VerseText[];
   fontSize?: number;
+  /** The most the system text size may scale the verse and the lead-in (see lib/verse-fit). */
+  verseMaxMultiplier?: number;
+  leadInMaxMultiplier?: number;
   selected: ReadonlySet<string>;
   onTogglePhrase: (key: string) => void;
 }) {
@@ -53,13 +61,22 @@ export function VerseBlock({
   return (
     <View style={styles.block}>
       {/* Lead-in — dimmed, smaller, serif text */}
-      <Text style={[styles.leadIn, { color: colors.textSecondary }]}>
+      <Text
+        testID="verse-lead-in"
+        maxFontSizeMultiplier={leadInMaxMultiplier}
+        style={[styles.leadIn, { color: colors.textSecondary }]}>
         <Text style={[styles.vnum, { color: colors.textSecondary }]}>{leadIn.number} </Text>
         {leadIn.text}
       </Text>
 
       {/* Passage — display serif, tap-a-phrase clauses */}
-      <Passage verses={verses} fontSize={fontSize} selected={selected} onTogglePhrase={onTogglePhrase} />
+      <Passage
+        verses={verses}
+        fontSize={fontSize}
+        maxMultiplier={verseMaxMultiplier}
+        selected={selected}
+        onTogglePhrase={onTogglePhrase}
+      />
     </View>
   );
 }
@@ -67,11 +84,13 @@ export function VerseBlock({
 function Passage({
   verses,
   fontSize,
+  maxMultiplier,
   selected,
   onTogglePhrase,
 }: {
   verses: VerseText[];
   fontSize: number;
+  maxMultiplier?: number;
   selected: ReadonlySet<string>;
   onTogglePhrase: (key: string) => void;
 }) {
@@ -89,7 +108,9 @@ function Passage({
 
   return (
     <Text
+      testID="verse-passage"
       accessibilityRole="text"
+      maxFontSizeMultiplier={maxMultiplier}
       style={{ fontFamily: Fonts.serifDisplay, fontSize, lineHeight, color: colors.text }}>
       {segments.map((seg, si) => (
         <Text key={seg.number}>
@@ -122,6 +143,6 @@ function Passage({
 
 const styles = StyleSheet.create({
   block: { gap: 20 },
-  leadIn: { fontFamily: Fonts.serifText, fontSize: 17, lineHeight: 26 },
+  leadIn: { fontFamily: Fonts.serifText, fontSize: LEAD_IN_FONT_SIZE, lineHeight: 26 },
   vnum: { fontFamily: Fonts.sans, fontWeight: '600' },
 });
