@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Screen, ThemedText } from '@/components/themed';
 import { Fonts, MinTapTarget, Spacing } from '@/constants/theme';
-import { rowTag, searchQuery, type ReferenceRow } from '@/data/search';
+import { rowTag, searchQuery, themesToRecord, type ReferenceRow } from '@/data/search';
 import type { Passage } from '@/data/types';
 import { renderPassage } from '@/data/verseStore';
 import { useCollection } from '@/hooks/use-collection';
@@ -28,6 +28,10 @@ import { useTheme } from '@/hooks/use-theme';
 import { tapLight } from '@/lib/haptics';
 
 const SUGGESTIONS = ['afraid', 'alone', 'thankful'];
+
+/** A fresh id for each jump to the feed, so reopening the same passage still
+ * scrolls to it. Only ever called from a press handler, never during render. */
+const newJumpId = () => String(Date.now());
 
 export default function SearchScreen() {
   const insets = useSafeAreaInsets();
@@ -47,26 +51,20 @@ export default function SearchScreen() {
       .verses.map((v) => v.text)
       .join(' ');
 
-  // Opening a result remembers the search and records the themes engaged with
-  // (the local signal that shapes the feed — no count is ever shown), then
-  // jumps to the feed. The feed can't yet scroll to a specific passage, so a
-  // reference lands on the feed rather than on the verse itself.
-  const open = (passage: Passage) => {
+  // Opening a result remembers the search, records the themes the reader
+  // searched for and found here (the local signal that shapes the feed — no
+  // count is ever shown), then jumps to that passage in the feed. `at` makes
+  // opening the same passage twice still count as a new jump.
+  const goTo = (passage: Passage, themes: string[]) => {
     if (trimmed) record(trimmed);
-    recordEngagement(passage.themeTags);
+    recordEngagement(themes);
     tapLight();
     setQuery('');
-    router.navigate('/');
+    router.navigate({ pathname: '/', params: { passage: passage.id, at: newJumpId() } });
   };
-
-  // Opening a "Read the book of X" row: record the search, record the book's
-  // themes if we carry a passage in it, and jump to the feed.
+  const open = (passage: Passage) => goTo(passage, themesToRecord(passage, result.themes));
   const openBook = (row: ReferenceRow) => {
-    if (trimmed) record(trimmed);
-    if (row.passage) recordEngagement(row.passage.themeTags);
-    tapLight();
-    setQuery('');
-    router.navigate('/');
+    if (row.passage) goTo(row.passage, row.passage.themeTags);
   };
 
   const runRecent = (q: string) => setQuery(q);
@@ -148,19 +146,36 @@ export default function SearchScreen() {
             {hasRefs && (
               <>
                 <Text style={[styles.caps, { color: colors.textSecondary }]}>Reference</Text>
-                {references.map((row) => (
-                  <Pressable
-                    key={row.book}
-                    onPress={() => openBook(row)}
-                    accessibilityRole="button"
-                    accessibilityLabel={row.label}
-                    style={[styles.resultRow, { borderTopColor: colors.hairline }]}>
-                    <View style={styles.resultText}>
-                      <Text style={[styles.opening, { color: colors.text }]}>{row.label}</Text>
+                {references.map((row) =>
+                  row.passage ? (
+                    <Pressable
+                      key={row.book}
+                      onPress={() => openBook(row)}
+                      accessibilityRole="button"
+                      accessibilityLabel={row.label}
+                      style={[styles.resultRow, { borderTopColor: colors.hairline }]}>
+                      <View style={styles.resultText}>
+                        <Text style={[styles.opening, { color: colors.text }]}>{row.label}</Text>
+                      </View>
+                      <Feather name="chevron-right" size={18} color={colors.textSecondary} style={styles.chev} />
+                    </Pressable>
+                  ) : (
+                    // We carry nothing from this book yet: say so instead of a
+                    // button that would open the feed somewhere unrelated.
+                    <View
+                      key={row.book}
+                      accessible
+                      accessibilityLabel={`${row.book}: not in this library yet`}
+                      style={[styles.resultRow, { borderTopColor: colors.hairline }]}>
+                      <View style={styles.resultText}>
+                        <Text style={[styles.opening, { color: colors.textSecondary }]}>{row.book}</Text>
+                        <Text style={[styles.unavailable, { color: colors.textSecondary }]}>
+                          Not in this library yet
+                        </Text>
+                      </View>
                     </View>
-                    <Feather name="chevron-right" size={18} color={colors.textSecondary} style={styles.chev} />
-                  </Pressable>
-                ))}
+                  ),
+                )}
               </>
             )}
 
@@ -195,7 +210,9 @@ export default function SearchScreen() {
             {/* Bare book that matched no feeling: say so plainly, don't centre. */}
             {hasRefs && result.passages.length === 0 && (
               <ThemedText variant="body" muted style={styles.footerNote}>
-                No feeling matched “{trimmed}”. Open the book above, or try a word for how you are.
+                {references.some((r) => r.passage)
+                  ? `No feeling matched “${trimmed}”. Open the book above, or try a word for how you are.`
+                  : `No feeling matched “${trimmed}”. Try a word for how you are, like “afraid” or “alone”.`}
               </ThemedText>
             )}
 
@@ -381,6 +398,7 @@ const styles = StyleSheet.create({
   resultText: { flex: 1, gap: 5 },
   opening: { fontFamily: Fonts.serifText, fontSize: 16, lineHeight: 23 },
   tag: { fontFamily: Fonts.sansMedium, fontSize: 13 },
+  unavailable: { fontFamily: Fonts.sans, fontSize: 13 },
   chev: { marginTop: Spacing.one },
   footerNote: { fontSize: 13, lineHeight: 19, paddingTop: Spacing.four },
 

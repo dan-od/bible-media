@@ -3,6 +3,7 @@
  * account; this all lives in on-device storage (see storage.ts). Pure helpers
  * here are unit-tested; the React/storage wiring lives elsewhere.
  */
+import { resolveThemes } from './search';
 import { getPassages } from './verseStore';
 import type { Passage, TranslationId } from './types';
 import { DEFAULT_TRANSLATION_ID } from './translations';
@@ -88,13 +89,16 @@ export function parseProfile(raw: string | null, available: TranslationId[]): Pr
 }
 
 /**
- * The themes that drive the feed: what the reader said they're going through,
- * plus what they tuned into — de-duplicated, order preserved.
+ * The themes that drive the feed: the chips the reader picked, what they tuned
+ * into, then whatever their own words reach — de-duplicated, order preserved.
  */
 export function effectiveSituations(profile: Profile): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
-  for (const s of [...profile.situations, ...profile.tunedThemes]) {
+  // The heart step's "a few words" answer reaches themes the same way search
+  // does (tags + synonyms.json, no model), after the chips and tuned themes.
+  const fromWords = resolveThemes(profile.freeText);
+  for (const s of [...profile.situations, ...profile.tunedThemes, ...fromWords]) {
     const key = s.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);

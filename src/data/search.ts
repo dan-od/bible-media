@@ -130,9 +130,25 @@ const ORDINALS: Record<string, string> = {
   first: '1', second: '2', third: '3',
 };
 
-/** Lower-case, strip periods, and fold a leading ordinal word to its digit. */
+/**
+ * Full alternative names that may stand alone as a bare book ("psalm", "song").
+ * Every other alias is an abbreviation, which only counts when a chapter
+ * follows ("ps 23"). On its own, an abbreviation is usually the start of an
+ * ordinary word typed one letter at a time ("ho…" on the way to "hope").
+ */
+const FULL_NAME_ALIASES = new Set(['psalm', 'song', 'song of solomon', 'canticles', 'apocalypse']);
+
+/**
+ * Lower-case, strip periods, separate a leading digit run together with the
+ * book ("1cor" → "1 cor"), and fold a leading ordinal word to its digit.
+ */
 function normaliseBook(raw: string): string {
-  const cleaned = raw.toLowerCase().replace(/\./g, ' ').replace(/\s+/g, ' ').trim();
+  const cleaned = raw
+    .toLowerCase()
+    .replace(/\./g, ' ')
+    .replace(/^(\d)(?=[a-z])/, '$1 ')
+    .replace(/\s+/g, ' ')
+    .trim();
   const parts = cleaned.split(' ');
   if (parts.length > 1 && ORDINALS[parts[0]]) parts[0] = ORDINALS[parts[0]];
   return parts.join(' ');
@@ -155,16 +171,20 @@ export interface ParsedReference {
  *
  * Handles numbered books ("1 John 2"), multi-word books ("Song of Songs 2"),
  * abbreviations ("1 Cor 13", "Ps 31:24"), a bare book with no chapter ("John"),
- * and verse ranges ("Matthew 6:25-27"). The whole string must be a reference —
- * a trailing or leading word that isn't part of one ("new job") fails here and
- * falls through to the theme lookup.
+ * and verse ranges ("Matthew 6:25-27"). Also the forms people type on a phone,
+ * where a colon means switching keyboards: "john 3 16", "John 3.16", and a book
+ * run together with its number ("1cor 13", "ps23"). The whole string must be a
+ * reference — a trailing or leading word that isn't part of one ("new job")
+ * fails here and falls through to the theme lookup.
  */
 export function parseReference(query: string): ParsedReference | null {
   const q = query.trim().replace(/\s+/g, ' ');
   if (!q) return null;
 
-  // Book part (minimal), then an optional "chapter(:verse(-verseEnd)?)".
-  const m = q.match(/^(.+?)(?:\s+(\d+)(?::(\d+)(?:\s*[-–—]\s*(\d+))?)?)?$/);
+  // Book part (minimal, so the shortest book that leaves a valid number tail
+  // wins: "1 Cor 13" is "1 Cor" + 13, never "1 Cor 1" + 3), then an optional
+  // chapter, verse (after ":", "." or a space) and verse range.
+  const m = q.match(/^(.+?)(?:\s*(\d+)(?:(?:\s*[:.]\s*|\s+)(\d+)(?:\s*[-–—]\s*(\d+))?)?)?$/);
   if (!m) return null;
 
   const book = BOOK_LOOKUP.get(normaliseBook(m[1]));
@@ -192,11 +212,18 @@ function passageBook(passage: Passage): string | undefined {
  * case. `[]` when the query isn't a bare book word (free text, or a reference
  * with a chapter). A single book for "Job"/"Acts"/"Song"; the whole family for
  * a numbered-book word like "Kings" (1 & 2 Kings) or "Corinthians".
+ *
+ * Only full names count on their own: a canonical name, a full alternative
+ * name ("psalm"), or a numbered abbreviation ("1 cor", which no English word
+ * starts with). A plain abbreviation ("is", "ho", "cant") does not.
  */
 function bareBookCandidates(query: string): string[] {
   const key = normaliseBook(query);
   const direct = BOOK_LOOKUP.get(key);
-  if (direct) return [direct];
+  if (direct) {
+    const isFullName = key === direct.toLowerCase() || FULL_NAME_ALIASES.has(key) || /^\d/.test(key);
+    return isFullName ? [direct] : [];
+  }
   return FAMILY_LOOKUP.get(key) ?? [];
 }
 
@@ -249,14 +276,35 @@ const PHRASES: Phrase[] = (() => {
   return [...byKey.entries()].map(([key, themes]) => ({ tokens: key.split(' '), themes }));
 })();
 
-/** Lower-case, drop punctuation, split into word tokens. */
+/**
+ * Lower-case, drop apostrophes (so "can't" and the iOS keyboard's "can’t" are
+ * the one word "cant"), turn other punctuation into spaces, split into words,
+ * and fold plurals. Applied to the vocabulary and to the query alike, so the
+ * two always meet in the same form.
+ */
 function tokenize(s: string): string[] {
   return s
     .toLowerCase()
+    .replace(/['’‘ʼ]/g, '')
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
     .split(/\s+/)
-    .filter(Boolean);
+    .filter(Boolean)
+    .map(singular);
+}
+
+/**
+ * A deliberately small plural fold: "worries" → "worry", "fears" → "fear".
+ * Short words and endings that aren't plurals ("loss", "anxious", "crisis")
+ * are left alone. Because both sides are folded, an imperfect fold ("goes" →
+ * "goe") is harmless: it can only meet a vocabulary word folded the same way.
+ */
+function singular(word: string): string {
+  if (word.length <= 3) return word;
+  if (word.endsWith('ies')) return `${word.slice(0, -3)}y`;
+  if (word.endsWith('ss') || word.endsWith('us') || word.endsWith('is')) return word;
+  if (word.endsWith('s')) return word.slice(0, -1);
+  return word;
 }
 
 /** Do `phrase` tokens appear as a contiguous run starting at `tokens[i]`? */
@@ -287,15 +335,21 @@ export function resolveThemes(query: string): string[] {
   }
   hits.sort((a, b) => b.end - b.start - (a.end - a.start) || a.start - b.start);
 
+  // Longest phrase claims its words first...
   const covered = new Set<number>();
-  const themes: string[] = [];
+  const claimed: typeof hits = [];
   for (const hit of hits) {
     let fullyCovered = true;
     for (let k = hit.start; k <= hit.end; k++) if (!covered.has(k)) fullyCovered = false;
     if (fullyCovered) continue;
     for (let k = hit.start; k <= hit.end; k++) covered.add(k);
-    for (const t of hit.themes) if (!themes.includes(t)) themes.push(t);
+    claimed.push(hit);
   }
+
+  // ...but the themes come back in the order the reader wrote them.
+  claimed.sort((a, b) => a.start - b.start);
+  const themes: string[] = [];
+  for (const hit of claimed) for (const t of hit.themes) if (!themes.includes(t)) themes.push(t);
   return themes;
 }
 
@@ -394,7 +448,12 @@ export function searchQuery(query: string): SearchResult {
   return { kind: 'theme', heading, themes, passages, ...(references ? { references } : {}) };
 }
 
-/** Union of passages tagged with any of `themes`, in stable seed order. */
+/**
+ * Union of passages tagged with any of `themes`. A passage that carries more of
+ * the searched themes comes first ("worried about money": Matthew 6 carries
+ * both, so it leads); ties keep library order. Deterministic, and the ordering
+ * is never shown as a score.
+ */
 export function passagesForThemes(themes: string[]): Passage[] {
   const seen = new Set<string>();
   const out: Passage[] = [];
@@ -405,9 +464,22 @@ export function passagesForThemes(themes: string[]): Passage[] {
       out.push(p);
     }
   }
-  // Stable seed order regardless of theme order.
+  const wanted = new Set(themes.map((t) => t.toLowerCase()));
+  const matches = (p: Passage) => p.themeTags.filter((t) => wanted.has(t.toLowerCase())).length;
   const order = new Map(getPassages().map((p, i) => [p.id, i]));
-  return out.sort((a, b) => order.get(a.id)! - order.get(b.id)!);
+  return out.sort((a, b) => matches(b) - matches(a) || order.get(a.id)! - order.get(b.id)!);
+}
+
+/**
+ * The themes to record when the reader opens a result: the ones they searched
+ * for that this passage carries. Searching "afraid" and opening Psalm 31:24
+ * records Courage, not also New job. A search that named no theme (a reference,
+ * or a book row) records the passage's own tags.
+ */
+export function themesToRecord(passage: Passage, matched: string[]): string[] {
+  const wanted = new Set(matched.map((t) => t.toLowerCase()));
+  const overlap = passage.themeTags.filter((t) => wanted.has(t.toLowerCase()));
+  return overlap.length > 0 ? overlap : [...passage.themeTags];
 }
 
 /**

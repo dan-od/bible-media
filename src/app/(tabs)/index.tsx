@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ScrollView, StyleSheet, useWindowDimensions, View, type ScrollViewInstance } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CompareSheet } from '@/components/feed/CompareSheet';
@@ -11,7 +12,7 @@ import { type RailAction } from '@/components/feed/ActionRail';
 import { Toast } from '@/components/feed/Toast';
 import { Screen, ThemedText } from '@/components/themed';
 import { Fonts, ReadingColumnEm, RootFontSize, Spacing } from '@/constants/theme';
-import { getNote, isSaved, isStarred } from '@/data/collection';
+import { engagedThemes, getNote, isSaved, isStarred } from '@/data/collection';
 import { buildFeed } from '@/data/feed';
 import { effectiveSituations } from '@/data/profile';
 import type { TranslationId } from '@/data/types';
@@ -32,9 +33,52 @@ export default function FeedScreen() {
   const { height: windowHeight, fontScale } = useWindowDimensions();
   const columnMaxWidth = ReadingColumnEm * RootFontSize * fontScale;
 
-  const feed = useMemo(() => buildFeed(effectiveSituations(profile)), [profile]);
+  // Situations lead; themes opened from search come next. `engaged` keeps its
+  // identity across star/save/note changes, so only a search open reorders.
+  const engaged = collection.engaged;
+  const feed = useMemo(
+    () => buildFeed(effectiveSituations(profile), engagedThemes({ engaged })),
+    [profile, engaged],
+  );
 
   const [tab, setTab] = useState<FeedTab>('foryou');
+
+  // Jump to a passage opened from Search (`/?passage=<id>&at=<time>`). Pages
+  // aren't a fixed height (they grow with the text), so the offset is the sum
+  // of the measured heights before it. Heights are kept per passage, so they
+  // stay right when the feed reorders.
+  const { passage: target, at } = useLocalSearchParams<{ passage?: string; at?: string }>();
+  const scrollRef = useRef<ScrollViewInstance>(null);
+  const heights = useRef(new Map<string, number>());
+  const pending = useRef<string | null>(null);
+  const handledAt = useRef<string | undefined>(undefined);
+
+  const scrollToPending = useCallback(() => {
+    const id = pending.current;
+    // No scroll view while the Circle tab shows: keep the jump pending until
+    // the feed mounts and its pages report their layout.
+    if (!id || !scrollRef.current) return;
+    let y = 0;
+    for (const item of feed) {
+      if (item.passage.id === id) {
+        scrollRef.current?.scrollTo({ y, animated: false });
+        pending.current = null;
+        return;
+      }
+      const h = heights.current.get(item.passage.id);
+      if (h === undefined) return; // not measured yet — a page's onLayout retries
+      y += h;
+    }
+    pending.current = null; // not in the feed
+  }, [feed]);
+
+  useEffect(() => {
+    if (!target || !at || handledAt.current === at) return;
+    handledAt.current = at;
+    pending.current = target;
+    setTab('foryou');
+    scrollToPending();
+  }, [target, at, scrollToPending]);
   const [translation, setTranslation] = useState<Record<string, TranslationId>>({});
   const [phrases, setPhrases] = useState<Record<string, Set<string>>>({});
   const [sheet, setSheet] = useState<Sheet>(null);
@@ -103,6 +147,7 @@ export default function FeedScreen() {
         </View>
       ) : (
         <ScrollView
+          ref={scrollRef}
           style={styles.feedArea}
           pagingEnabled
           showsVerticalScrollIndicator={false}
@@ -111,7 +156,13 @@ export default function FeedScreen() {
             const id = item.passage.id;
             const rendered = renderPassage(item.passage, translation[id] ?? profile.translationId);
             return (
-              <View key={id} style={[styles.page, { minHeight: windowHeight }]}>
+              <View
+                key={id}
+                onLayout={(e) => {
+                  heights.current.set(id, e.nativeEvent.layout.height);
+                  scrollToPending();
+                }}
+                style={[styles.page, { minHeight: windowHeight }]}>
                 <FeedCard
                   item={item}
                   rendered={rendered}

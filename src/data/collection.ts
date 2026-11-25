@@ -159,7 +159,7 @@ export function recordEngagement(c: Collection, themes: string[]): Collection {
 }
 
 /** Engaged themes, most-engaged first (for shaping the feed later; no count shown). */
-export function engagedThemes(c: Collection): string[] {
+export function engagedThemes(c: Pick<Collection, 'engaged'>): string[] {
   return Object.keys(c.engaged).sort((a, b) => c.engaged[b] - c.engaged[a]);
 }
 

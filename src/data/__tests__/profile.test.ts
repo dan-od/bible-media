@@ -57,6 +57,23 @@ describe('effectiveSituations', () => {
     };
     expect(effectiveSituations(profile)).toEqual(['New job', 'Courage', 'Grief']);
   });
+
+  // The heart step accepts "a few words" instead of chips. Those words were
+  // stored and never read; now they reach themes the same way search does.
+  it('reads the free-text answer through the same theme matching as search', () => {
+    const profile: Profile = { ...DEFAULT_PROFILE, situations: [], freeText: 'I’m worried about money' };
+    expect(effectiveSituations(profile)).toEqual(['Worry', 'Money']);
+  });
+
+  it('puts chips and tuned themes before free-text themes, without duplicates', () => {
+    const profile: Profile = {
+      ...DEFAULT_PROFILE,
+      situations: ['Money'],
+      tunedThemes: ['Grief'],
+      freeText: 'so tired and worried about money',
+    };
+    expect(effectiveSituations(profile)).toEqual(['Money', 'Grief', 'Weariness', 'Worry']);
+  });
 });
 
 describe('canContinueHeart', () => {

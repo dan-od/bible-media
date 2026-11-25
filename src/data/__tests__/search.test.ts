@@ -5,6 +5,7 @@ import {
   resolveThemes,
   rowTag,
   searchQuery,
+  themesToRecord,
 } from '@/data/search';
 import { getPassageById } from '@/data/verseStore';
 
@@ -44,6 +45,24 @@ describe('parseReference', () => {
     expect(parseReference('second timothy 1')).toMatchObject({ book: '2 Timothy', chapter: 1 });
     expect(parseReference('ii tim 1')).toMatchObject({ book: '2 Timothy', chapter: 1 });
     expect(parseReference('ps 31:24')).toMatchObject({ book: 'Psalms', chapter: 31, verse: 24 });
+  });
+
+  // A colon means switching keyboards on a phone, so people type these instead.
+  it('accepts the formats people type on a phone ("john 3 16", "John 3.16")', () => {
+    expect(parseReference('john 3 16')).toMatchObject({ book: 'John', chapter: 3, verse: 16 });
+    expect(parseReference('John 3.16')).toMatchObject({ book: 'John', chapter: 3, verse: 16 });
+    expect(parseReference('1 John 2 3')).toMatchObject({ book: '1 John', chapter: 2, verse: 3 });
+  });
+
+  it('accepts a book run together with its number ("1cor 13", "1john 2", "ps23")', () => {
+    expect(parseReference('1cor 13')).toMatchObject({ book: '1 Corinthians', chapter: 13 });
+    expect(parseReference('1john 2')).toMatchObject({ book: '1 John', chapter: 2 });
+    expect(parseReference('ps23')).toMatchObject({ book: 'Psalms', chapter: 23 });
+  });
+
+  it('still reads a numbered book as the book, not its number ("2 Kings 3")', () => {
+    expect(parseReference('2 Kings 3')).toMatchObject({ book: '2 Kings', chapter: 3, verse: undefined });
+    expect(parseReference('Psalm 119')).toMatchObject({ book: 'Psalms', chapter: 119 });
   });
 
   it('returns null for free text that is not a reference', () => {
@@ -94,6 +113,25 @@ describe('resolveThemes', () => {
   it('returns nothing for a query with no theme words', () => {
     expect(resolveThemes('xyzzy')).toEqual([]);
   });
+
+  // "cant afford" is in synonyms.json for exactly this, and the iOS keyboard
+  // types a curly apostrophe.
+  it('reads "can\'t" and "can’t" as one word', () => {
+    expect(resolveThemes("can't afford rent")).toEqual(['Worry', 'Money']);
+    expect(resolveThemes('can’t afford rent')).toEqual(['Worry', 'Money']);
+  });
+
+  it('matches plurals of the vocabulary ("worries", "fears", "jobs")', () => {
+    expect(resolveThemes('worries')).toEqual(['Worry']);
+    expect(resolveThemes('my fears')).toEqual(['Fear']);
+    expect(resolveThemes('jobs')).toEqual(['New job']);
+    expect(resolveThemes('anxieties')).toEqual(['Anxiety']);
+  });
+
+  it('leaves words ending in -ss alone ("loss", "stress")', () => {
+    expect(resolveThemes('loss')).toEqual(['Grief']);
+    expect(resolveThemes('stress')).toEqual(['Anxiety']);
+  });
 });
 
 describe('searchQuery', () => {
@@ -101,9 +139,11 @@ describe('searchQuery', () => {
     const r = searchQuery('worried about money');
     expect(r.kind).toBe('theme');
     expect(r.heading).toBe('4 passages on worry and money');
+    // Matthew 6 carries both Worry and Money, so it leads; the rest, which
+    // carry one each, follow in library order. No score is shown.
     expect(r.passages.map((p) => p.id)).toEqual([
-      'philippians-4-6-7',
       'matthew-6-25-27',
+      'philippians-4-6-7',
       'first-timothy-6-6-8',
       'psalm-37-25',
     ]);
@@ -185,6 +225,40 @@ describe('searchQuery — bare book names are ambiguous', () => {
     const r = searchQuery('Job 3');
     expect(r.kind).toBe('reference');
     expect(r.references).toBeUndefined();
+  });
+
+  // Search runs on every keystroke. Abbreviations are for references with a
+  // chapter, so on their own they must not flash a book row mid-word
+  // ("ho" on the way to "hope", "is", "cant").
+  it.each(['is', 'am', 're', 'ho', 'ex', 'pro', 'cant', 'lam'])(
+    'shows no book row for the bare abbreviation "%s"',
+    (query) => {
+      expect(searchQuery(query).references).toBeUndefined();
+    },
+  );
+
+  it('still offers a book for a full alternative name or a numbered abbreviation', () => {
+    expect(searchQuery('psalm').references?.map((r) => r.book)).toEqual(['Psalms']);
+    expect(searchQuery('1 cor').references?.map((r) => r.book)).toEqual(['1 Corinthians']);
+    expect(searchQuery('first john').references?.map((r) => r.book)).toEqual(['1 John']);
+  });
+
+  it('abbreviations still work with a chapter ("ps 23", "1 tim 6")', () => {
+    expect(searchQuery('ps 34:18').passages.map((p) => p.id)).toEqual(['psalm-34-18']);
+    expect(searchQuery('1 tim 6').passages.map((p) => p.id)).toEqual(['first-timothy-6-6-8']);
+  });
+});
+
+describe('themesToRecord', () => {
+  const psalm = () => getPassageById('psalm-31-24')!; // Courage, New job, Fear
+
+  it('records only the themes the reader searched for, not every tag on the passage', () => {
+    // Searching "afraid" (Courage) and opening Psalm 31:24 must not boost New job.
+    expect(themesToRecord(psalm(), ['Courage'])).toEqual(['Courage']);
+  });
+
+  it('falls back to the passage tags when the search named no theme (a reference)', () => {
+    expect(themesToRecord(psalm(), [])).toEqual(['Courage', 'New job', 'Fear']);
   });
 });
 
