@@ -1,6 +1,6 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, useWindowDimensions, View, type ScrollViewInstance } from 'react-native';
+import { Platform, ScrollView, StyleSheet, useWindowDimensions, View, type ScrollViewInstance } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CompareSheet } from '@/components/feed/CompareSheet';
@@ -18,6 +18,7 @@ import { effectiveSituations } from '@/data/profile';
 import type { TranslationId } from '@/data/types';
 import { renderPassage } from '@/data/verseStore';
 import { selection, tapLight } from '@/lib/haptics';
+import { pageSnapOffsets } from '@/lib/snap';
 import { useCollection } from '@/hooks/use-collection';
 import { useProfile } from '@/hooks/use-profile';
 
@@ -50,6 +51,25 @@ export default function FeedScreen() {
   const { passage: target, at } = useLocalSearchParams<{ passage?: string; at?: string }>();
   const scrollRef = useRef<ScrollViewInstance>(null);
   const heights = useRef(new Map<string, number>());
+
+  // A page is at least one screen of the FEED AREA (between the header and the
+  // tab bar), not of the whole window — otherwise the rail's last actions sit
+  // under the tab bar and pages drift off their snap points. Until the area is
+  // measured, the window height stands in, so there's never a blank frame.
+  const [viewport, setViewport] = useState(0);
+  const pageMinHeight = viewport || windowHeight;
+
+  // Native: snap to measured page starts (see pageSnapOffsets) so a passage that
+  // grows past the screen at large text sizes doesn't misalign the rest. Web:
+  // RNW's pagingEnabled is CSS scroll-snap, which already lets a tall page
+  // scroll inside itself, so it keeps paging.
+  const [pageHeights, setPageHeights] = useState<Record<string, number>>({});
+  const snapOffsets = useMemo(() => {
+    if (Platform.OS === 'web' || !viewport) return undefined;
+    const list = feed.map((item) => pageHeights[item.passage.id]);
+    if (list.some((h) => h === undefined)) return undefined;
+    return pageSnapOffsets(list as number[], viewport);
+  }, [feed, pageHeights, viewport]);
   const pending = useRef<string | null>(null);
   const handledAt = useRef<string | undefined>(undefined);
 
@@ -149,7 +169,12 @@ export default function FeedScreen() {
         <ScrollView
           ref={scrollRef}
           style={styles.feedArea}
-          pagingEnabled
+          onLayout={(e) => setViewport(Math.round(e.nativeEvent.layout.height))}
+          // Until every page is measured, plain paging (pages are one feed area
+          // tall unless the text is very large, so it lines up).
+          pagingEnabled={!snapOffsets}
+          snapToOffsets={snapOffsets}
+          disableIntervalMomentum
           showsVerticalScrollIndicator={false}
           decelerationRate="fast">
           {feed.map((item) => {
@@ -159,10 +184,12 @@ export default function FeedScreen() {
               <View
                 key={id}
                 onLayout={(e) => {
-                  heights.current.set(id, e.nativeEvent.layout.height);
+                  const h = Math.round(e.nativeEvent.layout.height);
+                  heights.current.set(id, h);
+                  setPageHeights((prev) => (prev[id] === h ? prev : { ...prev, [id]: h }));
                   scrollToPending();
                 }}
-                style={[styles.page, { minHeight: windowHeight }]}>
+                style={[styles.page, { minHeight: pageMinHeight }]}>
                 <FeedCard
                   item={item}
                   rendered={rendered}
@@ -224,8 +251,8 @@ const EMPTY: ReadonlySet<string> = new Set();
 
 const styles = StyleSheet.create({
   feedArea: { flex: 1 },
-  // Each passage fills a screenful (minHeight, so it still grows with the text)
-  // and its column is vertically centred at every width.
+  // Each passage fills the feed area (minHeight, so it still grows with the
+  // text) and its column is vertically centred at every width.
   page: { justifyContent: 'center', paddingHorizontal: Spacing.five },
   circle: { flex: 1, paddingHorizontal: Spacing.five, justifyContent: 'center', gap: Spacing.three },
   circleTitle: { fontSize: 30, lineHeight: 36 },
