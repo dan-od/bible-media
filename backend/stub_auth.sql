@@ -1,6 +1,14 @@
 -- Minimal stand-in for what Supabase provides, so the schema can be run locally.
 create schema if not exists auth;
-create table if not exists auth.users (id uuid primary key default gen_random_uuid());
+create table if not exists auth.users (id uuid primary key default gen_random_uuid(), email text);
+-- Supabase's auth audit log: no foreign key to users, and it repeats the email.
+create table if not exists auth.audit_log_entries (
+  instance_id uuid,
+  id          uuid primary key default gen_random_uuid(),
+  payload     json,
+  created_at  timestamptz default now(),
+  ip_address  varchar(64) not null default ''
+);
 create or replace function auth.uid() returns uuid language sql stable as
   $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
 

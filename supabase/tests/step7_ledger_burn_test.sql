@@ -78,15 +78,19 @@ insert into results select 'the other account gained nothing from the burned ids
 insert into results select 'the burned ids still carry no account', '0', count(user_id)::text, count(user_id) = 0
   from claim_ledger where client_id in (select client_id from e_ids);
 
--- The same person signing up again gets a new profile, and the ids stay burned for them too.
-select expect_allowed('the deleted person can make a new profile',
-  'e1000000-0000-4000-8000-000000000001', 'select create_profile(''E1 again'', ''1990-01-01'')');
-select expect_allowed('and record consent again',
-  'e1000000-0000-4000-8000-000000000001',
-  'insert into consents (user_id, kind, version) values (''e1000000-0000-4000-8000-000000000001'', ''special_category'', ''claim-1'')');
+-- The same person signing up again is a new auth user (the old one was deleted), and
+-- the ids stay burned for them too.
+insert into results select 'deleting the account removed the sign-in', '0', count(*)::text, count(*) = 0
+  from auth.users where id = 'e1000000-0000-4000-8000-000000000001';
+insert into auth.users (id) values ('e1000000-0000-4000-8000-000000000004');
+select expect_allowed('signing up again makes a new profile',
+  'e1000000-0000-4000-8000-000000000004', 'select create_profile(''E1 again'', ''1990-01-01'')');
+select expect_allowed('and records consent again',
+  'e1000000-0000-4000-8000-000000000004',
+  'insert into consents (user_id, kind, version) values (''e1000000-0000-4000-8000-000000000004'', ''special_category'', ''claim-1'')');
 insert into results select 'the burned ids are refused to the same person''s new account', '3 rejected',
   jsonb_array_length(r->'rejected')||' rejected', jsonb_array_length(r->'rejected') = 3
-  from (select claim_as('e1000000-0000-4000-8000-000000000001', 'e1_phone', 'd1000000-0000-4000-8000-000000000001') r) x;
+  from (select claim_as('e1000000-0000-4000-8000-000000000004', 'e1_phone', 'd1000000-0000-4000-8000-000000000001') r) x;
 
 -- ---- a burned row stays burned, even for the database owner
 do $$

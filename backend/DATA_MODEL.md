@@ -46,9 +46,12 @@ which is GDPR Article 9 special-category data. Three consequences you cannot bol
 - **Export and erasure have to work** — one function per user that returns everything,
   and one that deletes it. Content in a group thread needs a tombstone, so deleting a
   member does not delete the group's history.
-  Deleting an account also burns its client ids in `claim_ledger`: each row stays, loses
-  its account and is marked burned, so the ids can never be claimed again and nothing
-  left points to the person (`20260101000005_ledger_burn.sql`).
+  Deleting an account (`delete_user()`) removes the auth user too: the email, sign-in
+  identities, sessions and tokens, and auth's audit log entries about the person
+  (`20260101000008_delete_user_removes_sign_in.sql`). Its client ids in `claim_ledger`
+  are burned: each row stays, loses its account and can never be claimed again
+  (`20260101000005_ledger_burn.sql`). A check scans every table in every schema after a
+  deletion and fails if any row still holds the email.
 - **Private notes stay private from you too.** No admin screen reads them. If you ever
   need support access, it is an explicit, logged, time-boxed grant.
 
@@ -142,6 +145,13 @@ show up until a non-owner role runs a query — an owner bypasses RLS and sees n
 wrong. Fixed by making `is_minor`, `is_connected`, `in_group`, `group_rank`, `in_thread`
 and `may_message` `SECURITY DEFINER` with a pinned `search_path`.
 
+Those helpers exist for policies only, and since migration 7 they live in a `private`
+schema that grants clients no USAGE, so a policy can still call them (it holds them by
+id) but no client can (`POST /rpc/is_minor` used to tell any signed-in account which
+ids belonged to minors). Revoking EXECUTE instead would break every policy that calls
+them: Postgres checks EXECUTE as the querying user. Signed-in users may call only the
+client RPCs on `backend/client_guard.sql`'s allowlist, each with its reason.
+
 **2. A denied UPDATE is silent, and RLS cannot protect a column.** A member marking a
 reply "clarified by leader" was not rejected — the row policy simply matched nothing, so
 the statement succeeded and changed zero rows. Two consequences:
@@ -168,7 +178,8 @@ the build if any:
   ignores RLS);
 - is a view that isn't `security_invoker`, or a materialized view or foreign table a
   client can read (neither can carry RLS);
-- is a `SECURITY DEFINER` function `anon` can execute.
+- is a `SECURITY DEFINER` function `anon` can execute, or one a signed-in user can call
+  (USAGE on its schema and EXECUTE on it) that isn't on the client RPC allowlist.
 
 Anything that must be let through goes on the guard's allowlist with the reason. It's
 empty today. In CI, `stub_auth.sql` recreates Supabase's default grants, and checks it

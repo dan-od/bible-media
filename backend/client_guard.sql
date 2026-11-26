@@ -18,14 +18,39 @@
 --   no_rls_read    a client can read a materialized view or foreign table, which
 --                  can't have RLS
 --   anon_definer   anon can execute a SECURITY DEFINER function, which runs past RLS
+--   auth_definer   signed-in users can call a SECURITY DEFINER function: they have
+--                  USAGE on its schema and EXECUTE on it. Only deliberate client RPCs
+--                  may be called; everything else runs past RLS for nobody's benefit
+--                  (is_minor(uuid) would let an adult probe which accounts are minors).
+--
+-- Functions are checked in the schemas this project creates: public, and private,
+-- where the helpers RLS policies call live. A policy needs its helpers to be
+-- executable by the signed-in role, but not reachable: private grants no USAGE to
+-- clients, so nobody can name them.
 --
 -- To let something through, add it to `allowed` below with a comment saying why. A
 -- reviewer should be able to read the reason and agree, every time.
 
 create temp table allowed (object text, rule text, why text not null, primary key (object, rule));
--- Nothing is allowed through today. An entry looks like:
+-- An entry for a table looks like:
 --   insert into allowed values ('spatial_ref_sys', 'rls_off',
 --     'PostGIS reference data: no row is personal, and anon_write still holds');
+
+-- The client RPCs: definer functions a signed-in person calls on purpose. Each checks
+-- the caller itself (auth.uid()) before touching anything.
+insert into allowed (object, rule, why) values
+  ('claim_records(jsonb,uuid)', 'auth_definer',
+   'The app copies its local records into the account (sync/supabase-server). Writes only the caller''s rows; refuses ids another account owns.'),
+  ('my_records()', 'auth_definer',
+   'The app pulls the account''s records on sign-in. Returns only the caller''s rows.'),
+  ('create_profile(text,date,text,text)', 'auth_definer',
+   'First sign-in creates the caller''s own profile (profiles has no insert policy). 13+ enforced here.'),
+  ('delete_user(uuid)', 'auth_definer',
+   'Self-service erasure (DATA_MODEL.md). Refuses any id but the caller''s.'),
+  ('mark_clarified(bigint)', 'auth_definer',
+   'A group leader marks a reply clarified; RLS cannot protect the column, so this checks rank and raises.'),
+  ('archive_group(bigint)', 'auth_definer',
+   'A group leader archives their group (decisions migration). Checks rank and raises.');
 
 create temp table guard_findings as
 with rels as (
@@ -33,6 +58,11 @@ with rels as (
          coalesce('security_invoker=true' = any (c.reloptions) or 'security_invoker=on' = any (c.reloptions), false) as invoker
   from pg_class c join pg_namespace n on n.oid = c.relnamespace
   where n.nspname = 'public' and c.relkind in ('r', 'p', 'v', 'm', 'f')
+),
+definers as (
+  select p.oid, p.oid::regprocedure::text as sig, n.nspname
+  from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+  where n.nspname in ('public', 'private') and p.prosecdef
 ),
 anon as (select exists (select 1 from pg_roles where rolname = 'anon') as here),
 auth as (select exists (select 1 from pg_roles where rolname = 'authenticated') as here)
@@ -53,9 +83,12 @@ select relname, 'no_rls_read' from rels, anon, auth
     and ((anon.here and has_table_privilege('anon', oid, 'SELECT'))
          or (auth.here and has_table_privilege('authenticated', oid, 'SELECT')))
 union all
-select p.oid::regprocedure::text, 'anon_definer'
-  from pg_proc p join pg_namespace n on n.oid = p.pronamespace, anon
-  where anon.here and n.nspname = 'public' and p.prosecdef and has_function_privilege('anon', p.oid, 'EXECUTE');
+select sig, 'anon_definer' from definers, anon
+  where anon.here and has_function_privilege('anon', oid, 'EXECUTE')
+union all
+select sig, 'auth_definer' from definers, auth
+  where auth.here and has_schema_privilege('authenticated', nspname, 'USAGE')
+    and has_function_privilege('authenticated', oid, 'EXECUTE');
 
 do $$
 declare
@@ -77,7 +110,9 @@ begin
   end if;
   select count(*) into checked from pg_class c join pg_namespace n on n.oid = c.relnamespace
   where n.nspname = 'public' and c.relkind in ('r', 'p', 'v', 'm', 'f');
-  raise notice 'client guard passed: % relations in public checked', checked;
+  raise notice 'client guard passed: % relations in public and % definer functions checked', checked,
+    (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname in ('public', 'private') and p.prosecdef);
 end $$;
 
 drop table guard_findings;
