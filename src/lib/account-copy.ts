@@ -5,10 +5,10 @@
  * through is religious and health-adjacent information about them; this is the moment
  * it stops being only on their phone. One plain sentence, naming everything that is
  * copied (situations, own words, tuned themes, stars, saves, notes) and the one thing
- * that never is (searches). Keep it in step with sync/claim if what's claimed changes.
+ * that never is (searches, which are deleted at sign-out rather than kept). Keep it in step with sync/claim if what's claimed changes.
  */
 export const COPY_LINE =
-  'This copies what you’ve said you’re going through, in your own words too, the themes you picked, and your stars, saves and notes to your account on our server; your searches stay on this phone.';
+  'This copies what you’ve said you’re going through, in your own words too, the themes you picked, and your stars, saves and notes to your account on our server; your searches never leave this phone.';
 
 export const DOB_WHY = 'We ask because some things work differently for people under 18. Accounts are for people 13 and over.';
 

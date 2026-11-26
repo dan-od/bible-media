@@ -336,7 +336,7 @@ describe('local stays the read path', () => {
 });
 
 describe('sign-out', () => {
-  it('clears the local copies of claimed data, and keeps this phone’s settings and tally', async () => {
+  it('clears the local copies of claimed data and the tally, and keeps this phone’s settings', async () => {
     const phone = usedPhone();
     await phone.write((s) => ({
       ...s,
@@ -350,7 +350,7 @@ describe('sign-out', () => {
     expect(phone.view().profile.situations).toEqual([]);
     expect(phone.view().profile.freeText).toBe('');
     expect(phone.read().profile.settings).toMatchObject({ onboarded: true, level: 'seasoned', keepSearchHistory: false });
-    expect(phone.read().collection.engaged).toEqual({ Worry: 2 });
+    expect(phone.read().collection.engaged).toEqual({});
     // Nothing was lost: it's all on the server.
     expect(server.totalRows(A)).toBe(RECORDS);
   });

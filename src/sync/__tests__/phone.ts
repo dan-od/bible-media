@@ -5,7 +5,15 @@
  * it. `restart()` reloads what was persisted.
  */
 import type { ChangeContext, Owner } from '@/data/claimable';
-import { EMPTY_COLLECTION, setNote, toggleSave, toggleStar, viewFor, type NoteVisibility } from '@/data/collection';
+import {
+  EMPTY_COLLECTION,
+  recordEngagement,
+  setNote,
+  toggleSave,
+  toggleStar,
+  viewFor,
+  type NoteVisibility,
+} from '@/data/collection';
 import { applyProfilePatch, EMPTY_STORED_PROFILE, profileView } from '@/data/profile';
 import type { LocalState, LocalStore } from '@/sync/claim';
 
@@ -59,6 +67,10 @@ export class Phone implements LocalStore {
   }
   note(passageId: string, body: string, visibility: NoteVisibility = 'private') {
     this.local((s) => ({ ...s, collection: setNote(s.collection, passageId, body, visibility, this.ctx()) }));
+  }
+  /** Opening a search result: the tally of themes engaged with (never claimed). */
+  engage(themes: string[]) {
+    this.local((s) => ({ ...s, collection: recordEngagement(s.collection, themes) }));
   }
   heart(situations: string[], freeText: string, tunedThemes: string[] = []) {
     this.local((s) => ({ ...s, profile: applyProfilePatch(s.profile, { situations, freeText, tunedThemes }, this.ctx()) }));

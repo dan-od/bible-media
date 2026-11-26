@@ -9,7 +9,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 
-import { getLocal, localStore, setAccount, subscribeLocal, useLocal } from '@/data/local-store';
+import { clearHistory, getLocal, localStore, setAccount, subscribeLocal, useLocal } from '@/data/local-store';
 import { isDurable } from '@/data/storage';
 import { supabase } from '@/lib/supabase';
 import { completeSignIn, signOut as signOutSteps, sync, type Account, type AccountDeps } from '@/sync/account';
@@ -67,6 +67,7 @@ function deps(): AccountDeps {
     server: supabaseClaimServer,
     fetchSnapshot,
     endSession,
+    clearHistory,
     deviceId: local.deviceId,
     durable: isDurable(),
   };

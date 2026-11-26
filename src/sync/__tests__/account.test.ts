@@ -9,7 +9,22 @@ import { Phone } from './phone';
 const A: Account = { userId: 'aaaaaaaa-0000-4000-8000-000000000001', email: 'a@example.com' };
 const B: Account = { userId: 'bbbbbbbb-0000-4000-8000-000000000002', email: 'b@example.com' };
 
-function deps(phone: Phone, server: FakeServer, ended: { count: number } = { count: 0 }): AccountDeps {
+/** This phone's search history, which lives outside the claim's state. */
+class History {
+  entries = ['grief', 'psalm 34'];
+  failing = false;
+  async clear() {
+    if (this.failing) throw new Error('storage refused');
+    this.entries = [];
+  }
+}
+
+function deps(
+  phone: Phone,
+  server: FakeServer,
+  ended: { count: number } = { count: 0 },
+  history: History = new History(),
+): AccountDeps {
   let account: Account | null = phone.viewer ? { userId: phone.viewer, email: '' } : null;
   return {
     read: () => phone.read(),
@@ -26,6 +41,7 @@ function deps(phone: Phone, server: FakeServer, ended: { count: number } = { cou
     endSession: async () => {
       ended.count++;
     },
+    clearHistory: () => history.clear(),
     deviceId: 'd0000000-0000-4000-8000-000000000001',
     durable: true,
   };
@@ -36,6 +52,7 @@ function used(): Phone {
   p.heart(['Grief'], 'My mum died in March');
   p.star('psalm-34-18');
   p.note('psalm-34-18', 'Close to the brokenhearted.');
+  p.engage(['grief', 'comfort']);
   return p;
 }
 
@@ -116,4 +133,63 @@ it('refuses to claim when local storage is not durable', async () => {
   const d = { ...deps(phone, server), durable: false };
   expect(await completeSignIn(d, A)).toEqual({ status: 'not_durable' });
   expect(server.calls).toBe(0);
+});
+
+describe('search history and the tally of themes engaged with', () => {
+  it('are kept through sign-in: they belong to the phone until someone signs out', async () => {
+    const phone = used();
+    const history = new History();
+    await completeSignIn(deps(phone, server, undefined, history), A);
+    expect(history.entries).toEqual(['grief', 'psalm 34']);
+    expect(phone.persisted.collection.engaged).toEqual({ grief: 1, comfort: 1 });
+  });
+
+  it('are deleted at sign-out, and never reach the server', async () => {
+    const phone = used();
+    const history = new History();
+    const d = deps(phone, server, undefined, history);
+    await completeSignIn(d, A);
+    expect(await signOut(d)).toEqual({ status: 'signed_out' });
+    expect(history.entries).toEqual([]);
+    expect(phone.persisted.collection.engaged).toEqual({});
+    expect(JSON.stringify(await server.as(A.userId).snapshot())).not.toMatch(/comfort|psalm 34/);
+  });
+
+  it('stay while sign-out stops for something unsent, and go when signing out anyway', async () => {
+    const phone = used();
+    const history = new History();
+    const d = deps(phone, server, undefined, history);
+    await completeSignIn(d, A);
+    server.offline = true;
+    phone.note('john-15-5', 'Not sent yet.');
+    expect(await signOut(d)).toEqual({ status: 'unsent' });
+    expect(history.entries).toHaveLength(2);
+    expect(phone.persisted.collection.engaged).toEqual({ grief: 1, comfort: 1 });
+    await signOut(d, { anyway: true });
+    expect(history.entries).toEqual([]);
+    expect(phone.persisted.collection.engaged).toEqual({});
+  });
+
+  it('are deleted when a different account signs in over a remembered one', async () => {
+    const phone = used();
+    const history = new History();
+    const d = deps(phone, server, undefined, history);
+    await completeSignIn(d, A);
+    await completeSignIn(d, B);
+    expect(history.entries).toEqual([]);
+    expect(phone.persisted.collection.engaged).toEqual({});
+  });
+
+  it('if the history can’t be deleted, sign-out stops with everything as it was', async () => {
+    const phone = used();
+    const history = new History();
+    const ended = { count: 0 };
+    const d = deps(phone, server, ended, history);
+    await completeSignIn(d, A);
+    history.failing = true;
+    await expect(signOut(d)).rejects.toThrow('storage refused');
+    expect(phone.viewer).toBe(A.userId);
+    expect(noteList(phone.view().collection)).toHaveLength(1);
+    expect(ended.count).toBe(0);
+  });
 });

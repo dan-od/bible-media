@@ -7,7 +7,7 @@
  *   or save per passage, situations and tuned themes by theme, own words and notes
  *   kept as they are. Anything this phone is still waiting to remove isn't brought back.
  * - `release` (sign-out): the local copies of what the account has confirmed are
- *   cleared, since they're on the server and phones get shared. Records the server
+ *   cleared, since they're on the server and phones get shared, and so is the tally. Records the server
  *   hasn't confirmed yet stay, hidden, until that account signs in again: they belong
  *   to it, so they're neither lost nor shown to anyone else.
  */
@@ -142,12 +142,17 @@ export function mergeSnapshot(s: LocalState, snap: Snapshot, userId: string): Lo
   };
 }
 
-/** Sign-out: clear what the server has confirmed; keep (hidden) what it hasn't. */
+/**
+ * Sign-out: clear what the server has confirmed; keep (hidden) what it hasn't. The
+ * tally of themes engaged with is cleared too: it's built from searches, which are
+ * deleted at sign-out (see sync/account), and it's never claimed.
+ */
 export function release(s: LocalState, userId: string): LocalState {
   const keep = <T extends Claimable>(list: T[]) => list.filter((r) => !(r.owner === userId && isSynced(r)));
   return {
     collection: {
       ...s.collection,
+      engaged: {},
       stars: keep(s.collection.stars),
       saves: keep(s.collection.saves),
       notes: keep(s.collection.notes),

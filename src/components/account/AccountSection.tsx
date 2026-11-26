@@ -1,13 +1,15 @@
 /**
  * The You tab's account row: sign in, or who's signed in and sign out. Signing out
- * clears this phone's copies of what's in the account (it's on the server). If
- * something hasn't reached the account yet, it says so and asks first.
+ * clears this phone's copies of what's in the account (it's on the server) and
+ * deletes the searches, which were never copied. If something hasn't reached the
+ * account yet, it says so and asks first.
  */
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed';
+import { ErrorLine } from '@/components/account/Field';
 import { Button } from '@/components/ui/Button';
 import { Fonts, Spacing } from '@/constants/theme';
 import { useAccount } from '@/hooks/use-account';
@@ -18,14 +20,18 @@ export function AccountSection() {
   const { available, account, signOut } = useAccount();
   const [unsent, setUnsent] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   if (!available) return null;
 
   const onSignOut = async (anyway = false) => {
     if (busy) return;
     setBusy(true);
+    setError(null);
     try {
       setUnsent((await signOut(anyway)) === 'unsent');
+    } catch {
+      setError('Couldn’t sign out. Try again.');
     } finally {
       setBusy(false);
     }
@@ -49,14 +55,16 @@ export function AccountSection() {
                 <Button label="Stay signed in" variant="ghost" size="sm" onPress={() => setUnsent(false)} />
                 <Button label="Sign out anyway" size="sm" onPress={() => onSignOut(true)} style={styles.flex1} />
               </View>
+              <ErrorLine message={error} />
             </>
           ) : (
             <>
               <ThemedText variant="body" muted style={styles.detail}>
-                Signing out removes your stars, saves, notes and what you’re going through from this phone. They stay in your
-                account.
+                Signing out removes your stars, saves, notes and what you’re going through from this phone; they stay in your
+                account. Your searches were only ever on this phone, so they’re deleted.
               </ThemedText>
               <Button label={busy ? 'Signing out…' : 'Sign out'} variant="ghost" size="sm" onPress={() => onSignOut()} />
+              <ErrorLine message={error} />
             </>
           )}
         </View>

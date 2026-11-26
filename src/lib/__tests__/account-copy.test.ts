@@ -5,8 +5,8 @@ describe('the copy line', () => {
     expect(COPY_LINE.split(/[.!?](\s|$)/).filter((s) => s && s.trim()).length).toBe(1);
   });
 
-  it('names everything the claim copies, and that searches stay', () => {
-    for (const word of ['going through', 'own words', 'themes', 'stars', 'saves', 'notes', 'server', 'searches stay on this phone']) {
+  it('names everything the claim copies, and that searches never leave', () => {
+    for (const word of ['going through', 'own words', 'themes', 'stars', 'saves', 'notes', 'server', 'searches never leave this phone']) {
       expect(COPY_LINE).toContain(word);
     }
   });

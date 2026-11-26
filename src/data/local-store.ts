@@ -7,6 +7,10 @@
  * Who is signed in decides what the screens see: unowned records and that account's
  * own (see claimable.ts). The account is remembered locally so its data shows at
  * launch before the server session has loaded.
+ *
+ * Search history is held here too, so that signing out can clear it everywhere at
+ * once, including on a Search screen that's already open. It stays outside
+ * `LocalData`: the claim only ever sees `LocalData`, so searches can't be claimed.
  */
 import { useSyncExternalStore } from 'react';
 
@@ -14,14 +18,18 @@ import type { ChangeContext, Owner } from './claimable';
 import { EMPTY_COLLECTION, type Collection } from './collection';
 import { newId } from './ids';
 import { EMPTY_STORED_PROFILE, type StoredProfile } from './profile';
+import { EMPTY_HISTORY, type SearchHistory } from './search-history';
 import {
+  clearSearchHistory,
   loadAccount,
   loadCollection,
   loadDeviceId,
   loadProfile,
+  loadSearchHistory,
   saveAccount,
   saveCollection,
   saveProfile,
+  saveSearchHistory,
   type StoredAccount,
 } from './storage';
 
@@ -31,12 +39,21 @@ export interface LocalData {
 }
 
 interface State extends LocalData {
+  history: SearchHistory;
   account: StoredAccount | null;
   deviceId: string;
   ready: boolean;
 }
 
-let state: State = { collection: EMPTY_COLLECTION, profile: EMPTY_STORED_PROFILE, account: null, deviceId: '', ready: false };
+const INITIAL: State = {
+  collection: EMPTY_COLLECTION,
+  profile: EMPTY_STORED_PROFILE,
+  history: EMPTY_HISTORY,
+  account: null,
+  deviceId: '',
+  ready: false,
+};
+let state: State = INITIAL;
 const listeners = new Set<() => void>();
 let loading: Promise<void> | null = null;
 let chain: Promise<unknown> = Promise.resolve();
@@ -49,13 +66,14 @@ function set(next: State) {
 /** Load everything once (running the stored-shape migration first; see storage.ts). */
 export function loadLocal(): Promise<void> {
   loading ??= (async () => {
-    const [profile, collection, account, deviceId] = await Promise.all([
+    const [profile, collection, history, account, deviceId] = await Promise.all([
       loadProfile(),
       loadCollection(),
+      loadSearchHistory(),
       loadAccount(),
       loadDeviceId().catch(() => ''),
     ]);
-    set({ profile, collection, account, deviceId, ready: true });
+    set({ profile, collection, history, account, deviceId, ready: true });
   })();
   return loading;
 }
@@ -91,6 +109,24 @@ export function updateLocal(change: (s: LocalData) => LocalData): Promise<void> 
   return write;
 }
 
+/** Change the search history; resolves once it's persisted. */
+export function updateHistory(change: (h: SearchHistory) => SearchHistory): Promise<void> {
+  const before = state.history;
+  set({ ...state, history: change(state.history) });
+  if (state.history === before) return chain.then(() => undefined);
+  const write = chain.then(() => saveSearchHistory(state.history));
+  chain = write.catch(() => undefined);
+  return write;
+}
+
+/** Delete the search history from this phone (sign-out); rejects if storage refused. */
+export function clearHistory(): Promise<void> {
+  set({ ...state, history: EMPTY_HISTORY });
+  const write = chain.then(() => clearSearchHistory());
+  chain = write.catch(() => undefined);
+  return write;
+}
+
 export function setAccount(account: StoredAccount | null): Promise<void> {
   set({ ...state, account });
   const write = chain.then(() => saveAccount(account));
@@ -103,6 +139,13 @@ export const localStore = {
   read: (): LocalData => ({ collection: state.collection, profile: state.profile }),
   write: updateLocal,
 };
+
+/** For tests: start from nothing, as at launch. */
+export function resetLocalForTests(): void {
+  state = INITIAL;
+  loading = null;
+  chain = Promise.resolve();
+}
 
 export function useLocal(): State {
   return useSyncExternalStore(subscribeLocal, getLocal, getLocal);
