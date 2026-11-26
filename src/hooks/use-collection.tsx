@@ -1,69 +1,62 @@
 /**
- * Loads the reader's collection (stars, saves, notes) from on-device storage
- * once at startup and makes it available app-wide, persisting every change.
- * Mirrors use-profile: `ready` is false until the first load resolves.
+ * The reader's collection (stars, saves, notes) and engagement tally, app-wide.
+ * Backed by the shared local store (data/local-store), every change persisted.
+ * `collection` is what the signed-in account (or no one) may see.
  */
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useMemo } from 'react';
 
 import {
-  EMPTY_COLLECTION,
+  editNote as editNoteIn,
   recordEngagement as recordEngagementIn,
   setNote as setNoteIn,
   toggleSave as toggleSaveIn,
   toggleStar as toggleStarIn,
+  viewFor,
   type Collection,
   type NoteVisibility,
 } from '@/data/collection';
-import { loadCollection, saveCollection } from '@/data/storage';
+import { changeContext, updateLocal, useLocal } from '@/data/local-store';
 
 interface CollectionContextValue {
   collection: Collection;
   ready: boolean;
-  toggleStar: (id: string) => void;
-  toggleSave: (id: string) => void;
-  setNote: (id: string, body: string, visibility: NoteVisibility) => void;
-  /** Record themes the reader engaged with (opening a search result). */
+  toggleStar: (passageId: string) => void;
+  toggleSave: (passageId: string) => void;
+  /** Write the note on a passage (edits its most recent note). Empty removes it. */
+  setNote: (passageId: string, body: string, visibility: NoteVisibility) => void;
+  /** Edit one note by id. Empty removes it. */
+  editNote: (clientId: string, body: string, visibility: NoteVisibility) => void;
+  /** Record themes the reader engaged with (opening a search result). Never leaves the phone. */
   recordEngagement: (themes: string[]) => void;
 }
 
 const CollectionContext = createContext<CollectionContextValue | null>(null);
 
 export function CollectionProvider({ children }: { children: React.ReactNode }) {
-  const [collection, setCollection] = useState<Collection>(EMPTY_COLLECTION);
-  const [ready, setReady] = useState(false);
+  const local = useLocal();
+  const viewer = local.account?.userId ?? null;
+  const collection = useMemo(() => viewFor(local.collection, viewer), [local.collection, viewer]);
 
-  useEffect(() => {
-    let mounted = true;
-    loadCollection().then((c) => {
-      if (!mounted) return;
-      setCollection(c);
-      setReady(true);
-    });
-    return () => {
-      mounted = false;
-    };
+  const change = useCallback((fn: (c: Collection) => Collection) => {
+    void updateLocal((s) => ({ ...s, collection: fn(s.collection) }));
   }, []);
 
-  // Persist whenever the collection changes (after the initial load).
-  useEffect(() => {
-    if (ready) void saveCollection(collection);
-  }, [collection, ready]);
-
-  const toggleStar = useCallback((id: string) => setCollection((c) => toggleStarIn(c, id)), []);
-  const toggleSave = useCallback((id: string) => setCollection((c) => toggleSaveIn(c, id)), []);
+  const toggleStar = useCallback((id: string) => change((c) => toggleStarIn(c, id, changeContext())), [change]);
+  const toggleSave = useCallback((id: string) => change((c) => toggleSaveIn(c, id, changeContext())), [change]);
   const setNote = useCallback(
-    (id: string, body: string, visibility: NoteVisibility) =>
-      setCollection((c) => setNoteIn(c, id, body, visibility)),
-    [],
+    (id: string, body: string, visibility: NoteVisibility) => change((c) => setNoteIn(c, id, body, visibility, changeContext())),
+    [change],
   );
-  const recordEngagement = useCallback(
-    (themes: string[]) => setCollection((c) => recordEngagementIn(c, themes)),
-    [],
+  const editNote = useCallback(
+    (clientId: string, body: string, visibility: NoteVisibility) =>
+      change((c) => editNoteIn(c, clientId, body, visibility, changeContext())),
+    [change],
   );
+  const recordEngagement = useCallback((themes: string[]) => change((c) => recordEngagementIn(c, themes)), [change]);
 
   const value = useMemo(
-    () => ({ collection, ready, toggleStar, toggleSave, setNote, recordEngagement }),
-    [collection, ready, toggleStar, toggleSave, setNote, recordEngagement],
+    () => ({ collection, ready: local.ready, toggleStar, toggleSave, setNote, editNote, recordEngagement }),
+    [collection, local.ready, toggleStar, toggleSave, setNote, editNote, recordEngagement],
   );
 
   return <CollectionContext.Provider value={value}>{children}</CollectionContext.Provider>;
