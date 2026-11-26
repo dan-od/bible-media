@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { useRef, useState, type ComponentRef } from 'react';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { ErrorLine, Field } from '@/components/account/Field';
 import { StepScaffold } from '@/components/onboarding/StepScaffold';
@@ -14,6 +14,9 @@ import { checkDateOfBirth, DOB_WHY } from '@/lib/account-copy';
 export default function AboutYou() {
   const { colors } = useTheme();
   const { createProfile, cancelSignIn } = useAccount();
+  const monthRef = useRef<ComponentRef<typeof TextInput>>(null);
+  const yearRef = useRef<ComponentRef<typeof TextInput>>(null);
+  const dayRef = useRef<ComponentRef<typeof TextInput>>(null);
   const [name, setName] = useState('');
   const [day, setDay] = useState('');
   const [month, setMonth] = useState('');
@@ -55,13 +58,55 @@ export default function AboutYou() {
           <Button label={busy ? 'Setting up…' : 'Continue'} onPress={onContinue} style={styles.flex1} />
         </View>
       }>
-      <Field label="Your name" value={name} onChangeText={setName} autoComplete="name" textContentType="name" autoFocus />
+      <Field
+        label="Your name"
+        value={name}
+        onChangeText={setName}
+        autoComplete="name"
+        textContentType="name"
+        autoFocus
+        returnKeyType="next"
+        submitBehavior="submit"
+        onSubmitEditing={() => dayRef.current?.focus()}
+      />
       <View style={styles.group} accessibilityRole="none">
         <Text style={[styles.label, { color: colors.textSecondary }]}>Date of birth</Text>
         <View style={styles.dob}>
-          <Field label="Day" value={day} onChangeText={digits(setDay, 2)} keyboardType="number-pad" placeholder="DD" style={styles.part} />
-          <Field label="Month" value={month} onChangeText={digits(setMonth, 2)} keyboardType="number-pad" placeholder="MM" style={styles.part} />
-          <Field label="Year" value={year} onChangeText={digits(setYear, 4)} keyboardType="number-pad" placeholder="YYYY" style={styles.year} />
+          {/* A number pad has no return key; "done" gives it one on iOS, so the keyboard
+              never hides Continue with no way past it. */}
+          <Field
+            ref={dayRef}
+            label="Day"
+            value={day}
+            onChangeText={digits(setDay, 2)}
+            keyboardType="number-pad"
+            returnKeyType="done"
+            onSubmitEditing={() => monthRef.current?.focus()}
+            placeholder="DD"
+            style={styles.part}
+          />
+          <Field
+            ref={monthRef}
+            label="Month"
+            value={month}
+            onChangeText={digits(setMonth, 2)}
+            keyboardType="number-pad"
+            returnKeyType="done"
+            onSubmitEditing={() => yearRef.current?.focus()}
+            placeholder="MM"
+            style={styles.part}
+          />
+          <Field
+            ref={yearRef}
+            label="Year"
+            value={year}
+            onChangeText={digits(setYear, 4)}
+            keyboardType="number-pad"
+            returnKeyType="done"
+            onSubmitEditing={onContinue}
+            placeholder="YYYY"
+            style={styles.year}
+          />
         </View>
         <Text style={[styles.why, { color: colors.textSecondary }]}>{DOB_WHY}</Text>
       </View>

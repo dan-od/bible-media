@@ -1,10 +1,11 @@
 /** A labelled text field for the sign-in screens. The label is what a screen reader announces. */
+import type { ComponentRef, Ref } from 'react';
 import { StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
 
 import { Fonts, MinTapTarget, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
-export function Field({ label, style, ...input }: TextInputProps & { label: string }) {
+export function Field({ label, style, ...input }: TextInputProps & { label: string; ref?: Ref<ComponentRef<typeof TextInput>> }) {
   const { colors } = useTheme();
   return (
     <View style={[styles.field, style]}>
