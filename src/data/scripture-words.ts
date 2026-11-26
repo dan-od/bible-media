@@ -3,26 +3,15 @@
  * them. Word wrap only breaks at spaces, so a "word" here is a whole run
  * between spaces, punctuation and all ("understanding,"). A run that is wider
  * than its line can only be broken mid-word, which is what the reading
- * surfaces are sized to prevent (see lib/verse-fit and lib/sheet-fit).
- *
- * The one exception is a soft hyphen (U+00AD), placed by hand in our own copy,
- * never in Scripture: line breaking may break there and draws a hyphen, so each
- * piece counts as its own run, the hyphen included.
+ * surfaces are sized to prevent (see lib/verse-fit and lib/sheet-fit). A word
+ * of our own copy that is too wide is rewritten, never hyphenated by hand.
  */
 import type { Passage } from './types';
 import { readAllLabel, sheetTitles } from '@/lib/sheet-copy';
 
-export const SOFT_HYPHEN = '­';
-
 /** The unbreakable runs in a piece of text. */
 export function lineBreakUnits(text: string): string[] {
-  return text
-    .split(/\s+/)
-    .filter(Boolean)
-    .flatMap((run) => {
-      const pieces = run.split(SOFT_HYPHEN);
-      return pieces.map((piece, i) => (i < pieces.length - 1 ? `${piece}-` : piece));
-    });
+  return text.split(/\s+/).filter(Boolean);
 }
 
 const distinct = (texts: Iterable<string>) => {

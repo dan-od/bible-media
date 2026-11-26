@@ -43,10 +43,11 @@ it('names the passage it acts on, under a short title held at its 60pt cap', asy
 });
 
 it('closes, then runs the chosen action', async () => {
-  const props = await renderSheet();
-  fireEvent.press(screen.getByLabelText('Other versions'));
-  expect(props.onClose).toHaveBeenCalledTimes(1);
-  expect(props.onAction).toHaveBeenCalledWith('versions');
+  // Some actions open a sheet of their own, so this one must close first.
+  const calls: string[] = [];
+  await renderSheet({ onClose: () => calls.push('close'), onAction: (a) => calls.push(a) });
+  await fireEvent.press(screen.getByLabelText('Other versions'));
+  expect(calls).toEqual(['close', 'versions']);
 });
 
 it('shows which toggles are on', async () => {

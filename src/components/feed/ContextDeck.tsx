@@ -6,8 +6,9 @@
  * this is a tagged, human-reviewed reference set.
  *
  * The facts are held by their measured ceiling (lib/sheet-fit). A word in our
- * own copy too long for that may carry soft hyphens, placed by hand; Android
- * ignores those unless hyphenation is on, so it is on for the facts.
+ * own copy too wide for that is rewritten. Hyphenation stays at the platform
+ * default (off on Android): turning it on would change how every word on a card
+ * breaks, and it hasn't been checked on an Android device.
  */
 import { type ComponentRef, useRef, useState } from 'react';
 import {
@@ -111,7 +112,6 @@ export function ContextDeck({
                     {typeof card.body === 'string' ? (
                       <Text
                         maxFontSizeMultiplier={layout.context.maxMultiplier}
-                        android_hyphenationFrequency="normal"
                         style={[styles.body, { color: colors.text }]}>
                         {card.body}
                       </Text>

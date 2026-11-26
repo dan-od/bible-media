@@ -11,17 +11,23 @@ import { lineBreakUnits } from '@/data/scripture-words';
 import { getPassages, renderPassage } from '@/data/verseStore';
 import type { Passage } from '@/data/types';
 import { sheetLayout, type SheetLayout } from '@/lib/sheet-fit';
-import { railMetrics, SYSTEM_TEXT_SIZES, verseLayout } from '@/lib/verse-fit';
+import { FIT_MARGIN, railMetrics, SYSTEM_TEXT_SIZES, verseLayout } from '@/lib/verse-fit';
 
 // Every sheet, every passage, from one size below the breakpoint up to AX5, on
 // 390pt and 375pt: no word is wider than the line it is set in, no row holds
 // more than fits beside each other, and every title fits within its 60pt cap.
 //
 // The test renderer does no layout, so the font, size and size cap of each
-// piece of text are read from the rendered tree, and the width of the line it
-// sits in comes from REGIONS below, which mirrors the sheets' paddings. Text
-// in a region it doesn't know is measured against the sheet body; a new row of
-// side-by-side text needs an entry here.
+// piece of text are read from the rendered tree, and so is the shape of each
+// line it sits in: the sheet's padding, whether the close button shares the
+// title's row, which rows are side by side and which of their items take their
+// own width. Only paddings inside buttons are mirrored here (REGIONS). Nothing
+// is taken from lib/sheet-fit, so a wrong model there can't pass by agreeing
+// with itself. Text in a region this doesn't know is measured against the sheet
+// body; a new row of side-by-side text needs an entry here.
+//
+// A word fits with the same 2% margin the ceilings are built on (FIT_MARGIN),
+// so a cap that only matters within that margin is still checked.
 
 const PHONES = [390, 375] as const;
 const passages = getPassages();
@@ -36,27 +42,43 @@ const FACE_BY_FAMILY = new Map<string, keyof typeof FONT_FILES>(
   (['serifDisplay', 'serifText', 'sans', 'sansMedium', 'sansSemiBold'] as const).map((k) => [Fonts[k], k]),
 );
 
-/** Width of the line a region's text is set in. */
-function regionWidth(region: string, layout: SheetLayout, actionScale: number, fontScale: number): number {
-  const body = layout.bodyWidth;
+type Style = Record<string, any>;
+const styleOf = (id: string): Style => StyleSheet.flatten(screen.getByTestId(id).props.style) ?? {};
+const isRow = (id: string) => styleOf(id).flexDirection === 'row';
+
+/** Width of the line a region's text is set in, from the rendered tree. */
+function regionWidth(region: string, windowWidth: number, actionScale: number, fontScale: number): number {
+  const head = screen.getByTestId('sheet-head');
+  const sheetPadding = (StyleSheet.flatten(head.parent!.props.style) as Style).paddingHorizontal;
+  const body = windowWidth - 2 * sheetPadding;
   switch (region) {
-    case 'sheet-title':
-      return layout.title.width;
+    case 'sheet-title': {
+      const close = screen.getByTestId('sheet-close');
+      return close.parent === head && isRow('sheet-head') ? body - styleOf('sheet-close').width : body;
+    }
     case 'action-row': {
       const m = railMetrics(actionScale);
       return body - m.icon - Spacing.four;
     }
     case 'note-option':
       // Segmented control: 1pt border, 3pt padding, 3pt gap, 12pt label padding.
-      return layout.accessible ? body - 2 - 6 - 24 : (body - 2 - 6 - 3) / 2 - 24;
+      return isRow('note-options') ? (body - 2 - 6 - 3) / 2 - 24 : body - 2 - 6 - 24;
     case 'note-cancel':
-      // Ghost button: 20pt padding and a 1pt border. Side by side it takes
-      // its own width, so only stacked does the row bound it.
-      return layout.accessible ? body - 40 - 2 : Infinity;
     case 'note-save': {
-      if (layout.accessible) return body - 40;
-      const cancel = loadFont('sansSemiBold').width('Cancel') * 15 * fontScale + 40 + 2;
-      return body - Spacing.three - cancel - 40;
+      // Ghost button: 20pt padding and a 1pt border; solid: 20pt padding.
+      const inset = region === 'note-cancel' ? 42 : 40;
+      if (!isRow('note-actions')) return body - inset;
+      const flex = (id: string): number => styleOf(id).flex ?? 0;
+      const gap = styleOf('note-actions').gap ?? 0;
+      // Both grow: they share the row in proportion.
+      if (flex('note-cancel') > 0 && flex('note-save') > 0)
+        return ((body - gap) * flex(region)) / (flex('note-cancel') + flex('note-save')) - inset;
+      // Side by side, the one that doesn't grow takes its own width.
+      if (flex(region) === 0) return Infinity;
+      const other = region === 'note-cancel' ? 'note-save' : 'note-cancel';
+      const label = other === 'note-cancel' ? 'Cancel' : 'Save note';
+      const otherWidth = loadFont('sansSemiBold').width(label) * 15 * fontScale + (other === 'note-cancel' ? 42 : 40);
+      return body - gap - otherWidth - inset;
     }
     default:
       return body;
@@ -74,7 +96,7 @@ interface Problem {
 }
 
 /** Every word too wide for its line, and the rendered title sizes. */
-function measure(layout: SheetLayout, fontScale: number, actionScale: number) {
+function measure(windowWidth: number, fontScale: number, actionScale: number) {
   const problems: Problem[] = [];
   const titleSizes: number[] = [];
   let unmeasured = 0;
@@ -96,12 +118,13 @@ function measure(layout: SheetLayout, fontScale: number, actionScale: number) {
       const size = style.fontSize! * multiplier;
       // Conservatively, letter spacing grows with the text.
       const spacing = (style.letterSpacing ?? 0) * multiplier;
-      const width = regionWidth(here, layout, actionScale, fontScale);
+      const width = regionWidth(here, windowWidth, actionScale, fontScale);
       if (here === 'sheet-title') titleSizes.push(size);
       const shown = style.textTransform === 'uppercase' ? text.toUpperCase() : text;
       for (const word of lineBreakUnits(shown)) {
-        const needs = loadFont(face).width(word) * size + spacing * [...word].length;
-        if (needs > width) problems.push({ region: here, word, needs: Math.ceil(needs), width: Math.floor(width) });
+        const needs = (loadFont(face).width(word) * size + spacing * [...word].length) * FIT_MARGIN;
+        // A capped word fills its line, margin included, to the last decimal.
+        if (needs > width + 1e-6) problems.push({ region: here, word, needs: Math.ceil(needs), width: Math.floor(width) });
       }
     }
     for (const c of node.children ?? []) walk(c, here);
@@ -110,8 +133,8 @@ function measure(layout: SheetLayout, fontScale: number, actionScale: number) {
   return { problems, titleSizes, unmeasured };
 }
 
-function expectFits(layout: SheetLayout, fontScale: number, actionScale = layout.actionScale) {
-  const { problems, titleSizes, unmeasured } = measure(layout, fontScale, actionScale);
+function expectFits(windowWidth: number, layout: SheetLayout, fontScale: number) {
+  const { problems, titleSizes, unmeasured } = measure(windowWidth, fontScale, layout.actionScale);
   expect(problems).toEqual([]);
   expect(unmeasured).toBe(0);
   expect(titleSizes).toHaveLength(1);
@@ -147,7 +170,7 @@ describe.each(cases)('%spt at %s (%sx)', (windowWidth, _name, fontScale) => {
   describe.each(passages.map((p) => [p.reference, p] as const))('%s', (_ref, passage) => {
     it('compare sheet: every version reads without a broken word or an overflowing row', async () => {
       await render(<CompareSheet passage={passage} current="KJV" layout={layout} onSelect={() => {}} onClose={() => {}} />);
-      expectFits(layout, fontScale);
+      expectFits(windowWidth, layout, fontScale);
       expectHead(layout);
       // Each row's head (version and licence) wraps rather than running off the edge.
       for (const head of screen.getAllByTestId('compare-row-head')) {
@@ -166,7 +189,7 @@ describe.each(cases)('%spt at %s (%sx)', (windowWidth, _name, fontScale) => {
         // Every card is rendered, so every fact is measured.
         for (const fact of passage.context.facts) expect(screen.getByText(fact.body)).toBeTruthy();
       }
-      expectFits(layout, fontScale);
+      expectFits(windowWidth, layout, fontScale);
       expectHead(layout);
       expectScrolls();
     });
@@ -183,7 +206,7 @@ describe.each(cases)('%spt at %s (%sx)', (windowWidth, _name, fontScale) => {
           onClose={() => {}}
         />,
       );
-      expectFits(layout, fontScale);
+      expectFits(windowWidth, layout, fontScale);
       expectHead(layout);
       expectScrolls();
       const direction = layout.accessible ? 'column' : 'row';
@@ -203,7 +226,7 @@ describe.each(cases)('%spt at %s (%sx)', (windowWidth, _name, fontScale) => {
           onClose={() => {}}
         />,
       );
-      expectFits(layout, fontScale);
+      expectFits(windowWidth, layout, fontScale);
       expectHead(layout);
       expectScrolls();
     });
@@ -244,15 +267,16 @@ it('leaves the note body to scale like ordinary text (it is the reader’s own w
   expect(input.props.maxFontSizeMultiplier).toBeUndefined();
 });
 
-it('caps the context copy only where it is measured, and lets Android break at its soft hyphens', async () => {
-  const passage = passages.find((p) => p.context?.facts.some((f) => f.body.includes('­')))!;
+it('caps the context copy where it is measured, and leaves Android hyphenation at its default', async () => {
+  const passage = passages.find((p) => p.context?.facts.length)!;
   const layout = sheetLayout({ windowWidth: 390, fontScale: 3.571 });
   await render(<ContextDeck passage={passage} layout={layout} onClose={() => {}} />);
   await layOutDeck(layout);
-  const body = screen.getByText(/encour/);
+  const body = screen.getByText(passage.context!.facts[0].body);
   expect(body.props.maxFontSizeMultiplier).toBe(layout.context.maxMultiplier);
-  // Android ignores soft hyphens unless hyphenation is on.
-  expect(body.props.android_hyphenationFrequency).toBe('normal');
+  // Hyphenation would apply to every word on the card, on a platform not yet
+  // checked; it stays off until it's been seen on an Android device.
+  expect(body.props.android_hyphenationFrequency).toBeUndefined();
 });
 
 it('quotes the passage in whole words, never cut mid-word', async () => {

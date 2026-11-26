@@ -180,7 +180,7 @@ describe.each(SYSTEM_TEXT_SIZES.map((s) => [s.name, s.scale] as const))('at %s',
 it('opens the actions from the end control', async () => {
   const onOpen = jest.fn();
   await renderCard(getPassages()[0].id, 390, 3.571, onOpen);
-  fireEvent.press(screen.getByTestId('feed-actions'));
+  await fireEvent.press(screen.getByTestId('feed-actions'));
   expect(onOpen).toHaveBeenCalledTimes(1);
 });
 

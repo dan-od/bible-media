@@ -1,5 +1,5 @@
 import { loadFont, type FONT_FILES } from '../../../jest/font-metrics';
-import { SOFT_HYPHEN, sheetWords } from '@/data/scripture-words';
+import { sheetWords } from '@/data/scripture-words';
 import { getPassages } from '@/data/verseStore';
 import { SHEET_FLOOR_SCALE, SHEET_TYPE, sheetLayout } from '@/lib/sheet-fit';
 import { ceilingFor, SYSTEM_TEXT_SIZES, verseCeiling, verseLayout } from '@/lib/verse-fit';
@@ -79,14 +79,6 @@ it('uses the same measurement as the feed, at the width it is given', () => {
   // A sheet's compare rows are the sheet's inset body.
   const layout = sheetLayout({ windowWidth: 390, fontScale: AX5 });
   expect(layout.compare.width).toBe(390 - 48);
-});
-
-it('keeps soft hyphens out of Scripture (they are only for our own copy)', () => {
-  for (const p of getPassages())
-    for (const t of Object.values(p.text)) {
-      if (!t) continue;
-      for (const v of [t.leadIn, ...t.verses]) if (v) expect(v.text.includes(SOFT_HYPHEN)).toBe(false);
-    }
 });
 
 it('keeps the default layout while the window is unmeasured (web server rendering)', () => {
