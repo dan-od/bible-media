@@ -23,6 +23,7 @@ const GOOGLE_FONTS = join(__dirname, '../node_modules/@expo-google-fonts');
 export const FONT_FILES = {
   serifDisplay: join(GOOGLE_FONTS, 'libre-caslon-display/400Regular/LibreCaslonDisplay_400Regular.ttf'),
   serifText: join(GOOGLE_FONTS, 'libre-caslon-text/400Regular/LibreCaslonText_400Regular.ttf'),
+  serifTextItalic: join(GOOGLE_FONTS, 'libre-caslon-text/400Regular_Italic/LibreCaslonText_400Regular_Italic.ttf'),
   sans: join(GOOGLE_FONTS, 'hanken-grotesk/400Regular/HankenGrotesk_400Regular.ttf'),
   sansMedium: join(GOOGLE_FONTS, 'hanken-grotesk/500Medium/HankenGrotesk_500Medium.ttf'),
   sansSemiBold: join(GOOGLE_FONTS, 'hanken-grotesk/600SemiBold/HankenGrotesk_600SemiBold.ttf'),

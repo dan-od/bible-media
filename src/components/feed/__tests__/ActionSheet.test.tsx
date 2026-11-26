@@ -3,6 +3,7 @@ import { StyleSheet } from 'react-native';
 
 import { ActionSheet } from '@/components/feed/ActionSheet';
 import { MinTapTarget } from '@/constants/theme';
+import { sheetLayout } from '@/lib/sheet-fit';
 
 // The collapsed actions control opens the same seven actions as the rail, each
 // with a visible label (at the accessibility sizes a glyph alone is hostile).
@@ -15,7 +16,7 @@ async function renderSheet(overrides: Partial<React.ComponentProps<typeof Action
     starred: false,
     saved: false,
     hasNote: false,
-    scale: 1.3,
+    layout: sheetLayout({ windowWidth: 390, fontScale: 3.571 }),
     onAction: jest.fn(),
     onClose: jest.fn(),
     ...overrides,
@@ -32,11 +33,11 @@ it('offers the seven rail actions, in rail order, each with visible text', async
   for (const b of buttons) expect(StyleSheet.flatten(b.props.style).minHeight).toBeGreaterThanOrEqual(MinTapTarget);
 });
 
-it('names the passage it acts on, under a short title that cannot break mid-word', async () => {
+it('names the passage it acts on, under a short title held at its 60pt cap', async () => {
   await renderSheet();
   expect(screen.getByText('Matthew 6:25–27')).toBeTruthy();
-  // The display-serif title is capped at 2x (60pt, iOS's largest title); a
-  // book name in it would still break at AX5, so the title is just "Actions".
+  // At AX5 the title is held at iOS's largest title (2x of 30pt); every sheet's
+  // fit at every size is checked in sheets.test.
   const title = screen.getByText('Actions');
   expect(title.props.maxFontSizeMultiplier).toBe(2);
 });

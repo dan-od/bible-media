@@ -13,17 +13,20 @@ export function Button({
   variant = 'primary',
   size = 'lg',
   style,
+  testID,
 }: {
   label: string;
   onPress: () => void;
   variant?: 'primary' | 'ghost';
   size?: 'lg' | 'sm';
   style?: ViewStyle;
+  testID?: string;
 }) {
   const { colors } = useTheme();
   const ghost = variant === 'ghost';
   return (
     <Pressable
+      testID={testID}
       onPress={onPress}
       accessibilityRole="button"
       style={({ pressed }) => [

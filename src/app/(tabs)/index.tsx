@@ -23,6 +23,7 @@ import { pageSnapOffsets } from '@/lib/snap';
 import { PAGE_PADDING, verseLayout } from '@/lib/verse-fit';
 import { useCollection } from '@/hooks/use-collection';
 import { useProfile } from '@/hooks/use-profile';
+import { useSheetLayout } from '@/hooks/use-sheet-layout';
 
 type Sheet = { type: 'actions' | 'compare' | 'context' | 'note'; passageId: string } | null;
 
@@ -36,6 +37,7 @@ export default function FeedScreen() {
   // follow the width and the system text size (see lib/verse-fit).
   const { width: windowWidth, height: windowHeight, fontScale } = useWindowDimensions();
   const layout = useMemo(() => verseLayout({ windowWidth, fontScale }), [windowWidth, fontScale]);
+  const sheetFit = useSheetLayout();
 
   // Situations lead; themes opened from search come next. `engaged` keeps its
   // identity across star/save/note changes, so only a search open reorders.
@@ -258,7 +260,7 @@ export default function FeedScreen() {
           starred={isStarred(collection, activeSheetPassage.id)}
           saved={isSaved(collection, activeSheetPassage.id)}
           hasNote={!!getNote(collection, activeSheetPassage.id)}
-          scale={layout.railScale}
+          layout={sheetFit}
           onAction={(action) => handleAction(activeSheetPassage.id, action)}
           onClose={() => setSheet(null)}
         />
@@ -267,6 +269,7 @@ export default function FeedScreen() {
         <CompareSheet
           passage={activeSheetPassage}
           current={translation[activeSheetPassage.id] ?? profile.translationId}
+          layout={sheetFit}
           onSelect={(id) => {
             selection();
             setTranslation((p) => ({ ...p, [activeSheetPassage.id]: id }));
@@ -275,7 +278,7 @@ export default function FeedScreen() {
         />
       )}
       {sheet && activeSheetPassage && sheet.type === 'context' && (
-        <ContextDeck passage={activeSheetPassage} onClose={() => setSheet(null)} />
+        <ContextDeck passage={activeSheetPassage} layout={sheetFit} onClose={() => setSheet(null)} />
       )}
       {sheet && activeSheetPassage && sheet.type === 'note' && (
         <NoteSheet
@@ -286,6 +289,7 @@ export default function FeedScreen() {
           ).verses
             .map((v) => v.text)
             .join(' ')}
+          layout={sheetFit}
           initialBody={getNote(collection, activeSheetPassage.id)?.body ?? ''}
           initialVisibility={getNote(collection, activeSheetPassage.id)?.visibility ?? 'private'}
           onSave={(body, visibility) => {

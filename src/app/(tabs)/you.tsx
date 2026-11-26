@@ -10,6 +10,7 @@ import { effectiveSituations } from '@/data/profile';
 import { getPassageById, renderPassage } from '@/data/verseStore';
 import { useCollection } from '@/hooks/use-collection';
 import { useProfile } from '@/hooks/use-profile';
+import { useSheetLayout } from '@/hooks/use-sheet-layout';
 import { useTheme } from '@/hooks/use-theme';
 
 /** A friendly, score-free "when" — never a streak or a count. */
@@ -27,6 +28,7 @@ function whenLabel(ms: number): string {
 export default function YouScreen() {
   const insets = useSafeAreaInsets();
   const { colors, semantic } = useTheme();
+  const sheetFit = useSheetLayout();
   const { profile, update } = useProfile();
   const { collection, setNote } = useCollection();
 
@@ -171,6 +173,7 @@ export default function YouScreen() {
           verseText={renderPassage(editingPassage, profile.translationId)
             .verses.map((v) => v.text)
             .join(' ')}
+          layout={sheetFit}
           initialBody={getNote(collection, editing)?.body ?? ''}
           initialVisibility={getNote(collection, editing)?.visibility ?? 'private'}
           onSave={(body, visibility) => {

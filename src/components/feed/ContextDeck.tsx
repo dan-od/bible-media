@@ -4,6 +4,10 @@
  * read alongside. Pager dots sit below: each is a 44x44 tap target (the spec
  * calls these out specifically) even though the dot itself looks small. No AI —
  * this is a tagged, human-reviewed reference set.
+ *
+ * The facts are held by their measured ceiling (lib/sheet-fit). A word in our
+ * own copy too long for that may carry soft hyphens, placed by hand; Android
+ * ignores those unless hyphenation is on, so it is on for the facts.
  */
 import { type ComponentRef, useRef, useState } from 'react';
 import {
@@ -20,8 +24,18 @@ import { BottomSheet } from './BottomSheet';
 import { Fonts, MinTapTarget, Spacing } from '@/constants/theme';
 import type { Passage } from '@/data/types';
 import { useTheme } from '@/hooks/use-theme';
+import { contextTitle, readAllLabel } from '@/lib/sheet-copy';
+import { SHEET_TYPE, type SheetLayout } from '@/lib/sheet-fit';
 
-export function ContextDeck({ passage, onClose }: { passage: Passage; onClose: () => void }) {
+export function ContextDeck({
+  passage,
+  layout,
+  onClose,
+}: {
+  passage: Passage;
+  layout: SheetLayout;
+  onClose: () => void;
+}) {
   const { colors } = useTheme();
   const [width, setWidth] = useState(0);
   const [active, setActive] = useState(0);
@@ -61,15 +75,18 @@ export function ContextDeck({ passage, onClose }: { passage: Passage; onClose: (
 
   return (
     <BottomSheet
-      title={`${passage.book} ${passage.chapter}`}
+      title={contextTitle(passage)}
+      layout={layout}
       onClose={onClose}
       footer={
         <Pressable
           onPress={onClose}
           accessibilityRole="button"
           style={[styles.readAll, { backgroundColor: colors.text }]}>
-          <Text style={[styles.readAllText, { color: colors.background }]}>
-            Read all of {passage.book} {passage.chapter}
+          <Text
+            maxFontSizeMultiplier={layout.readAll.maxMultiplier}
+            style={[styles.readAllText, { color: colors.background }]}>
+            {readAllLabel(passage)}
           </Text>
         </Pressable>
       }>
@@ -78,7 +95,7 @@ export function ContextDeck({ passage, onClose }: { passage: Passage; onClose: (
           Context for this passage is coming — reviewed by a person, no AI.
         </Text>
       ) : (
-        <View onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
+        <View testID="context-deck" onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
           {width > 0 && (
             <ScrollView
               ref={scroller}
@@ -92,7 +109,12 @@ export function ContextDeck({ passage, onClose }: { passage: Passage; onClose: (
                   <View style={styles.card}>
                     <Text style={[styles.label, { color: colors.textSecondary }]}>{card.label}</Text>
                     {typeof card.body === 'string' ? (
-                      <Text style={[styles.body, { color: colors.text }]}>{card.body}</Text>
+                      <Text
+                        maxFontSizeMultiplier={layout.context.maxMultiplier}
+                        android_hyphenationFrequency="normal"
+                        style={[styles.body, { color: colors.text }]}>
+                        {card.body}
+                      </Text>
                     ) : (
                       card.body
                     )}
@@ -131,7 +153,7 @@ export function ContextDeck({ passage, onClose }: { passage: Passage; onClose: (
 const styles = StyleSheet.create({
   card: { paddingVertical: Spacing.three, gap: Spacing.two, minHeight: 150 },
   label: { fontFamily: Fonts.sansSemiBold, fontSize: 11, letterSpacing: 1.3, textTransform: 'uppercase' },
-  body: { fontFamily: Fonts.serifText, fontSize: 18, lineHeight: 27 },
+  body: { fontFamily: Fonts.serifText, fontSize: SHEET_TYPE.context.size, lineHeight: SHEET_TYPE.context.lineHeight },
   alongside: { flexDirection: 'row', gap: Spacing.five, flexWrap: 'wrap' },
   alongsideRef: { fontFamily: Fonts.sansMedium, fontSize: 16 },
   dots: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
@@ -139,5 +161,5 @@ const styles = StyleSheet.create({
   dot: { width: 7, height: 7, borderRadius: 999 },
   empty: { fontFamily: Fonts.serifText, fontSize: 16, lineHeight: 24, paddingVertical: Spacing.four },
   readAll: { minHeight: 52, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
-  readAllText: { fontFamily: Fonts.sansSemiBold, fontSize: 15 },
+  readAllText: { fontFamily: Fonts.sansSemiBold, fontSize: SHEET_TYPE.readAll.size, textAlign: 'center' },
 });

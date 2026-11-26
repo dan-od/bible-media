@@ -1,15 +1,39 @@
 /**
- * The words of Scripture as line breaking sees them. Word wrap only breaks at
- * spaces, so a "word" here is a whole run between spaces, punctuation and all
- * ("understanding,"). A run that is wider than its line can only be broken
- * mid-word, which is what the reading column is sized to prevent (see
- * lib/verse-fit).
+ * The words of Scripture (and of the copy around it) as line breaking sees
+ * them. Word wrap only breaks at spaces, so a "word" here is a whole run
+ * between spaces, punctuation and all ("understanding,"). A run that is wider
+ * than its line can only be broken mid-word, which is what the reading
+ * surfaces are sized to prevent (see lib/verse-fit and lib/sheet-fit).
+ *
+ * The one exception is a soft hyphen (U+00AD), placed by hand in our own copy,
+ * never in Scripture: line breaking may break there and draws a hyphen, so each
+ * piece counts as its own run, the hyphen included.
  */
 import type { Passage } from './types';
+import { readAllLabel, sheetTitles } from '@/lib/sheet-copy';
+
+export const SOFT_HYPHEN = '­';
 
 /** The unbreakable runs in a piece of text. */
 export function lineBreakUnits(text: string): string[] {
-  return text.split(/\s+/).filter(Boolean);
+  return text
+    .split(/\s+/)
+    .filter(Boolean)
+    .flatMap((run) => {
+      const pieces = run.split(SOFT_HYPHEN);
+      return pieces.map((piece, i) => (i < pieces.length - 1 ? `${piece}-` : piece));
+    });
+}
+
+const distinct = (texts: Iterable<string>) => {
+  const out = new Set<string>();
+  for (const t of texts) for (const w of lineBreakUnits(t)) out.add(w);
+  return [...out];
+};
+
+/** Every verse text in the library, in every translation it carries. */
+function* verseTexts(passages: readonly Passage[]) {
+  for (const p of passages) for (const t of Object.values(p.text)) if (t) for (const v of t.verses) yield v.text;
 }
 
 /**
@@ -18,14 +42,30 @@ export function lineBreakUnits(text: string): string[] {
  * serif), kept apart because they are set in different faces and sizes.
  */
 export function scriptureWords(passages: readonly Passage[]): { verse: string[]; leadIn: string[] } {
-  const verse = new Set<string>();
-  const leadIn = new Set<string>();
-  for (const p of passages) {
-    for (const text of Object.values(p.text)) {
-      if (!text) continue;
-      for (const v of text.verses) for (const w of lineBreakUnits(v.text)) verse.add(w);
-      if (text.leadIn) for (const w of lineBreakUnits(text.leadIn.text)) leadIn.add(w);
-    }
-  }
-  return { verse: [...verse], leadIn: [...leadIn] };
+  const leadIns = function* () {
+    for (const p of passages) for (const t of Object.values(p.text)) if (t?.leadIn) yield t.leadIn.text;
+  };
+  return { verse: distinct(verseTexts(passages)), leadIn: distinct(leadIns()) };
+}
+
+/**
+ * The runs each sheet surface can show, for measuring its ceiling. The note
+ * body is not here on purpose: it is the reader's own text, which no library
+ * can describe, so it scales like ordinary UI text (see lib/sheet-fit).
+ */
+export function sheetWords(passages: readonly Passage[]) {
+  return {
+    /** Compare rows: every passage verse, every translation. */
+    compare: distinct(verseTexts(passages)),
+    /** Note excerpt: the same verses, quoted in the note sheet. */
+    excerpt: distinct(verseTexts(passages)),
+    /** Context cards: the reviewed facts. */
+    context: distinct(passages.flatMap((p) => p.context?.facts.map((f) => f.body) ?? [])),
+    /** Every sheet title. */
+    title: distinct(passages.flatMap(sheetTitles)),
+    /** The reference under the actions sheet's title. */
+    reference: distinct(passages.map((p) => p.reference)),
+    /** The context sheet's "Read all of …" button. */
+    readAll: distinct(passages.map(readAllLabel)),
+  };
 }

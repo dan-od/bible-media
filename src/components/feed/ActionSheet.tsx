@@ -3,15 +3,17 @@
  * control at the end of a passage (see FeedCard). Same actions, same order and
  * same toggled states as the rail, but every row has a text label beside its
  * glyph: at the accessibility text sizes nobody should have to identify an icon.
- * Rows grow with the text size and the list scrolls if it outgrows the sheet.
+ * Rows grow with the text size and the sheet's body scrolls if they outgrow it.
  */
 import { Feather } from '@expo/vector-icons';
-import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { BottomSheet } from './BottomSheet';
 import { isActionOn, isToggleAction, RAIL_ITEMS, type RailAction } from './ActionRail';
 import { Fonts, MinTapTarget, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { ACTIONS_TITLE } from '@/lib/sheet-copy';
+import { SHEET_TYPE, type SheetLayout } from '@/lib/sheet-fit';
 import { railMetrics } from '@/lib/verse-fit';
 
 export function ActionSheet({
@@ -19,7 +21,7 @@ export function ActionSheet({
   starred,
   saved,
   hasNote,
-  scale,
+  layout,
   onAction,
   onClose,
 }: {
@@ -28,25 +30,26 @@ export function ActionSheet({
   starred: boolean;
   saved: boolean;
   hasNote: boolean;
-  /** The rail's scale at this text size (sizes the glyphs and rows). */
-  scale: number;
+  layout: SheetLayout;
   onAction: (action: RailAction) => void;
   onClose: () => void;
 }) {
   const { colors } = useTheme();
-  const m = railMetrics(scale);
+  const m = railMetrics(layout.actionScale);
   return (
-    // The title is set in the display serif. At AX5 a book name there would
-    // break mid-word, so it is a short word, capped at iOS's largest title
-    // (60pt); the passage is named underneath in the sans, which fits.
-    <BottomSheet title="Actions" titleMaxFontSizeMultiplier={2} onClose={onClose}>
-      <Text style={[styles.reference, { color: colors.textSecondary }]}>{reference}</Text>
-      <ScrollView bounces={false}>
+    <BottomSheet title={ACTIONS_TITLE} layout={layout} onClose={onClose}>
+      <Text
+        maxFontSizeMultiplier={layout.reference.maxMultiplier}
+        style={[styles.reference, { color: colors.textSecondary }]}>
+        {reference}
+      </Text>
+      <View>
         {RAIL_ITEMS.map(({ action, icon, label }) => {
           const on = isActionOn(action, { starred, saved, hasNote });
           return (
             <Pressable
               key={action}
+              testID="action-row"
               onPress={() => {
                 // Close first: some actions open a sheet of their own.
                 onClose();
@@ -61,7 +64,7 @@ export function ActionSheet({
             </Pressable>
           );
         })}
-      </ScrollView>
+      </View>
     </BottomSheet>
   );
 }
@@ -74,6 +77,6 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  reference: { fontFamily: Fonts.sans, fontSize: 15, paddingBottom: Spacing.two },
+  reference: { fontFamily: Fonts.sans, fontSize: SHEET_TYPE.reference.size, paddingBottom: Spacing.two },
   label: { flex: 1, fontFamily: Fonts.sansMedium, fontSize: 17 },
 });

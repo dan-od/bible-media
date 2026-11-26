@@ -111,18 +111,37 @@ function fullWidth(windowWidth: number, fontScale: number) {
 }
 
 /**
+ * The largest font size, in points, at which a word `em` wide (see
+ * data/word-metrics.json) still fits a line `textWidth` points wide. Every
+ * reading surface uses this; only the width it is given differs (the feed's
+ * column, a sheet's inset body, a title beside its close button).
+ */
+export function ceilingFor(textWidth: number, em: number): number {
+  return Math.max(0, textWidth) / (em * FIT_MARGIN);
+}
+
+/**
+ * `maxFontSizeMultiplier` that holds text of `baseSize` at `ceiling` points.
+ * React Native ignores values under 1, which would matter only on a screen
+ * narrower than any phone.
+ */
+export function maxMultiplierFor(ceiling: number, baseSize: number): number {
+  return Math.max(1, ceiling / baseSize);
+}
+
+/**
  * The largest verse and lead-in sizes, in points, at which the widest word of
  * each still fits the full column.
  */
 export function verseCeiling(
   windowWidth: number,
   fontScale: number,
-  metrics: WordMetrics = WORD_METRICS,
+  metrics: Pick<WordMetrics, 'verse' | 'leadIn'> = WORD_METRICS,
 ): { verse: number; leadIn: number } {
   const width = fullWidth(windowWidth, fontScale);
   return {
-    verse: width / (metrics.verse.em * FIT_MARGIN),
-    leadIn: width / (metrics.leadIn.em * FIT_MARGIN),
+    verse: ceilingFor(width, metrics.verse.em),
+    leadIn: ceilingFor(width, metrics.leadIn.em),
   };
 }
 
@@ -136,10 +155,8 @@ export function verseLayout({
   metrics?: WordMetrics;
 }): VerseLayout {
   const ceiling = verseCeiling(windowWidth, fontScale, metrics);
-  // React Native ignores a maxFontSizeMultiplier under 1, which would matter
-  // only on a screen narrower than any phone.
-  const verseMaxMultiplier = Math.max(1, ceiling.verse / VERSE_FONT_SIZE);
-  const leadInMaxMultiplier = Math.max(1, ceiling.leadIn / LEAD_IN_FONT_SIZE);
+  const verseMaxMultiplier = maxMultiplierFor(ceiling.verse, VERSE_FONT_SIZE);
+  const leadInMaxMultiplier = maxMultiplierFor(ceiling.leadIn, LEAD_IN_FONT_SIZE);
   const verseSize = VERSE_FONT_SIZE * Math.min(fontScale, verseMaxMultiplier);
   const leadInSize = LEAD_IN_FONT_SIZE * Math.min(fontScale, leadInMaxMultiplier);
 

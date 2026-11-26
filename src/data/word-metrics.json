@@ -6,5 +6,29 @@
   "leadIn": {
     "word": "commandments",
     "em": 7.571
+  },
+  "compare": {
+    "word": "understanding,",
+    "em": 7.007
+  },
+  "excerpt": {
+    "word": "understanding,",
+    "em": 7.191
+  },
+  "context": {
+    "word": "according",
+    "em": 4.644
+  },
+  "title": {
+    "word": "Deuteronomy",
+    "em": 5.0571
+  },
+  "reference": {
+    "word": "Deuteronomy",
+    "em": 6.061
+  },
+  "readAll": {
+    "word": "Deuteronomy",
+    "em": 6.1211
   }
 }
