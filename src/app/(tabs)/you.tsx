@@ -2,10 +2,11 @@ import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AccountSection } from '@/components/account/AccountSection';
 import { NoteSheet } from '@/components/feed/NoteSheet';
 import { Screen, ThemedText } from '@/components/themed';
 import { Fonts, MinTapTarget, Spacing } from '@/constants/theme';
-import { getNote, notedIds, savedIds } from '@/data/collection';
+import { getNoteById, noteList, savedIds } from '@/data/collection';
 import { effectiveSituations } from '@/data/profile';
 import { getPassageById, renderPassage } from '@/data/verseStore';
 import { useCollection } from '@/hooks/use-collection';
@@ -30,13 +31,14 @@ export default function YouScreen() {
   const { colors, semantic } = useTheme();
   const sheetFit = useSheetLayout();
   const { profile, update } = useProfile();
-  const { collection, setNote } = useCollection();
+  const { collection, editNote } = useCollection();
 
+  // The note being edited, by its id: a passage can hold notes from more than one phone.
   const [editing, setEditing] = useState<string | null>(null);
 
   const situations = useMemo(() => effectiveSituations(profile), [profile]);
   const saved = savedIds(collection);
-  const noted = notedIds(collection);
+  const notes = noteList(collection);
 
   const firstLine = (passageId: string): { reference: string; text: string } | null => {
     const passage = getPassageById(passageId);
@@ -45,8 +47,9 @@ export default function YouScreen() {
     return { reference: passage.reference, text: rendered.verses.map((v) => v.text).join(' ') };
   };
 
-  const editingPassage = editing ? getPassageById(editing) : undefined;
-  const nothingKept = saved.length === 0 && noted.length === 0;
+  const editingNote = editing ? getNoteById(collection, editing) : undefined;
+  const editingPassage = editingNote ? getPassageById(editingNote.passageId) : undefined;
+  const nothingKept = saved.length === 0 && notes.length === 0;
 
   return (
     <Screen>
@@ -112,17 +115,16 @@ export default function YouScreen() {
               </View>
             )}
 
-            {noted.length > 0 && (
+            {notes.length > 0 && (
               <View style={styles.section}>
                 <Text style={[styles.caps, { color: colors.textSecondary }]}>Your notes</Text>
-                {noted.map((id) => {
-                  const note = getNote(collection, id);
-                  const passage = getPassageById(id);
-                  if (!note || !passage) return null;
+                {notes.map((note) => {
+                  const passage = getPassageById(note.passageId);
+                  if (!passage) return null;
                   return (
                     <Pressable
-                      key={id}
-                      onPress={() => setEditing(id)}
+                      key={note.clientId}
+                      onPress={() => setEditing(note.clientId)}
                       accessibilityRole="button"
                       accessibilityLabel={`Edit your note on ${passage.reference}`}
                       style={[styles.row, styles.noteRow, { borderTopColor: colors.hairline }]}>
@@ -143,6 +145,8 @@ export default function YouScreen() {
             )}
           </>
         )}
+
+        <AccountSection />
 
         {/* Settings — kept minimal for this step: the search-history switch.
             Off means new searches aren't written (not merely hidden). */}
@@ -174,10 +178,10 @@ export default function YouScreen() {
             .verses.map((v) => v.text)
             .join(' ')}
           layout={sheetFit}
-          initialBody={getNote(collection, editing)?.body ?? ''}
-          initialVisibility={getNote(collection, editing)?.visibility ?? 'private'}
+          initialBody={editingNote?.body ?? ''}
+          initialVisibility={editingNote?.visibility ?? 'private'}
           onSave={(body, visibility) => {
-            setNote(editing, body, visibility);
+            editNote(editing, body, visibility);
             setEditing(null);
           }}
           onClose={() => setEditing(null)}

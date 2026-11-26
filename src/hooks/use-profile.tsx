@@ -1,50 +1,37 @@
 /**
- * Loads the reader's profile from on-device storage once at startup and makes it
- * available app-wide, persisting every change. `ready` is false until the first
- * load resolves, so routing can wait before deciding onboarding vs. feed.
+ * The reader's profile, as screens use it. Backed by the shared local store
+ * (data/local-store): loaded once at startup, every change persisted. `ready` is
+ * false until the first load resolves, so routing can wait before deciding
+ * onboarding vs. feed. What's shown is what the signed-in account (or no one) may see.
  */
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo } from 'react';
 
-import { DEFAULT_PROFILE, type Profile } from '@/data/profile';
-import { loadProfile, saveProfile } from '@/data/storage';
+import { changeContext, loadLocal, updateLocal, useLocal } from '@/data/local-store';
+import { applyProfilePatch, profileView, type Profile } from '@/data/profile';
 
 interface ProfileContextValue {
   profile: Profile;
   ready: boolean;
   update: (patch: Partial<Profile>) => void;
-  reset: () => void;
 }
 
 const ProfileContext = createContext<ProfileContextValue | null>(null);
 
 export function ProfileProvider({ children }: { children: React.ReactNode }) {
-  const [profile, setProfile] = useState<Profile>(DEFAULT_PROFILE);
-  const [ready, setReady] = useState(false);
+  const local = useLocal();
 
   useEffect(() => {
-    let mounted = true;
-    loadProfile().then((p) => {
-      if (!mounted) return;
-      setProfile(p);
-      setReady(true);
-    });
-    return () => {
-      mounted = false;
-    };
+    void loadLocal();
   }, []);
 
-  // Persist whenever the profile changes (after the initial load).
-  useEffect(() => {
-    if (ready) void saveProfile(profile);
-  }, [profile, ready]);
+  const viewer = local.account?.userId ?? null;
+  const profile = useMemo(() => profileView(local.profile, viewer), [local.profile, viewer]);
 
   const update = useCallback((patch: Partial<Profile>) => {
-    setProfile((prev) => ({ ...prev, ...patch }));
+    void updateLocal((s) => ({ ...s, profile: applyProfilePatch(s.profile, patch, changeContext()) }));
   }, []);
 
-  const reset = useCallback(() => setProfile(DEFAULT_PROFILE), []);
-
-  const value = useMemo(() => ({ profile, ready, update, reset }), [profile, ready, update, reset]);
+  const value = useMemo(() => ({ profile, ready: local.ready, update }), [profile, local.ready, update]);
 
   return <ProfileContext.Provider value={value}>{children}</ProfileContext.Provider>;
 }

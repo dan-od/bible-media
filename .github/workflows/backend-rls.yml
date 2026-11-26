@@ -11,12 +11,14 @@ on:
     paths:
       - 'backend/**'
       - 'supabase/migrations/**'
+      - 'supabase/tests/**'
       - 'scripts/rls-test.sh'
       - '.github/workflows/backend-rls.yml'
   pull_request:
     paths:
       - 'backend/**'
       - 'supabase/migrations/**'
+      - 'supabase/tests/**'
       - 'scripts/rls-test.sh'
       - '.github/workflows/backend-rls.yml'
 

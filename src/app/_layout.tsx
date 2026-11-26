@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { AccountProvider } from '@/hooks/use-account';
 import { CollectionProvider } from '@/hooks/use-collection';
 import { ProfileProvider, useProfile } from '@/hooks/use-profile';
 import { useTheme } from '@/hooks/use-theme';
@@ -33,6 +34,7 @@ function RootNavigator() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="onboarding" />
+      <Stack.Screen name="account" options={{ presentation: 'modal' }} />
     </Stack>
   );
 }
@@ -45,7 +47,9 @@ export default function RootLayout() {
         <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
         <ProfileProvider>
           <CollectionProvider>
-            <RootNavigator />
+            <AccountProvider>
+              <RootNavigator />
+            </AccountProvider>
           </CollectionProvider>
         </ProfileProvider>
       </SafeAreaProvider>

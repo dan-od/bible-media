@@ -59,4 +59,4 @@ psql_run "${args[@]}"
 # 4. Fail the build if any check failed. The suite leaves its verdicts in the
 #    'results' table; a denied write is silent under RLS, so we assert explicitly.
 psql_run -c "do \$\$ begin if exists (select 1 from results where not pass) then raise exception 'RLS authorization checks FAILED'; end if; end \$\$;"
-echo "All RLS authorization checks passed (base suite + decision checks)."
+echo "All RLS authorization checks passed (base suite + every file in supabase/tests)."
