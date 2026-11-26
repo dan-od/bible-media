@@ -267,8 +267,3 @@ select expect_count('a client cannot read the claim ledger', 'c1000000-0000-4000
   'select count(*) from claim_ledger', 0);
 select expect_denied('the internal passage helper is not callable by clients', 'c1000000-0000-4000-8000-000000000001',
   'select claim_passage_ref(''{"book":"X","chapter":1,"verse_start":1,"verse_end":1}''::jsonb)');
-
--- ---- combined report (base suite + decisions + prayed_count + claim)
-\echo '--- all checks (base suite + decisions + prayed_count + claim) ---'
-select name, expected, actual, case when pass then 'PASS' else 'FAIL' end as result from results order by ctid;
-select count(*) filter (where pass) as passed, count(*) filter (where not pass) as failed from results;

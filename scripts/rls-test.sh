@@ -5,11 +5,13 @@
 # plain postgres:16 service) and runnable locally.
 #
 # The authored schema lives at backend/schema.sql and is copied verbatim into the
-# first Supabase migration; this script asserts they have not drifted, then runs
-# the 22 authorization checks and FAILS if any did not pass.
+# first Supabase migration; this script asserts they have not drifted, runs the client
+# guard (backend/client_guard.sql: no table without RLS, nothing writable without
+# signing in), then every authorization check, and FAILS if any did not pass.
 #
 # Against plain Postgres (no Supabase auth schema) it loads backend/stub_auth.sql
-# to stand in for auth.users / auth.uid(), then applies the migration itself.
+# to stand in for auth.users / auth.uid() and Supabase's default grants, then applies
+# the migrations itself.
 # Against a real Supabase database — where the schema is already applied by
 # `supabase db reset` and auth.users / auth.uid() exist — pass --supabase to skip
 # both the stub and the migration and run the suite alone.
@@ -41,22 +43,31 @@ if ! diff -q "$SCHEMA_SRC" "$MIGRATION" >/dev/null; then
   exit 1
 fi
 
-# 2. The schema's final GRANTs target the 'authenticated' role. Supabase provides
-#    it; a bare Postgres does not, so create it first (idempotent).
-psql_run -c "do \$\$ begin if not exists (select 1 from pg_roles where rolname = 'authenticated') then create role authenticated; end if; end \$\$;"
+# 2. The schema's grants target Supabase's roles. Supabase provides them; a bare
+#    Postgres does not, so create them first (idempotent).
+psql_run -c "do \$\$ declare r text; begin foreach r in array array['anon','authenticated','service_role'] loop if not exists (select 1 from pg_roles where rolname = r) then execute format('create role %I', r); end if; end loop; end \$\$;"
 
 # 3. Apply the auth stub and all migrations in order (bare Postgres only), then the
-#    base suite, then any extra test files (decision checks).
+#    client guard (every table, view and definer function in public; it raises on a
+#    failure), then the base suite, then any extra test files (decision checks).
 args=()
 [[ $use_stub -eq 1 ]] && args+=(-f "$STUB")
 if [[ $apply_migration -eq 1 ]]; then
   for m in "$ROOT"/supabase/migrations/*.sql; do args+=(-f "$m"); done
 fi
+# The client guard runs before the suites, which add scaffolding tables of their own.
+args+=(-f "$ROOT/backend/client_guard.sql")
 args+=(-f "$SUITE")
 for t in "$ROOT"/supabase/tests/*.sql; do [[ -e "$t" ]] && args+=(-f "$t"); done
 psql_run "${args[@]}"
 
-# 4. Fail the build if any check failed. The suite leaves its verdicts in the
+# 4. One report for every check, from the base suite and every file in supabase/tests.
+echo '--- all checks ---'
+psql_run -c "select name, expected, actual, case when pass then 'PASS' else 'FAIL' end as result from results order by ctid" \
+         -c "select count(*) filter (where pass) as passed, count(*) filter (where not pass) as failed from results"
+
+# 5. Fail the build if any check failed. The suite leaves its verdicts in the
 #    'results' table; a denied write is silent under RLS, so we assert explicitly.
 psql_run -c "do \$\$ begin if exists (select 1 from results where not pass) then raise exception 'RLS authorization checks FAILED'; end if; end \$\$;"
-echo "All RLS authorization checks passed (base suite + every file in supabase/tests)."
+psql_run -c "do \$\$ begin if to_regclass('public.client_guard_passed') is null then raise exception 'the client guard did not run (backend/client_guard.sql)'; end if; end \$\$;"
+echo "Client guard and all RLS authorization checks passed (base suite + every file in supabase/tests)."

@@ -46,6 +46,9 @@ which is GDPR Article 9 special-category data. Three consequences you cannot bol
 - **Export and erasure have to work** — one function per user that returns everything,
   and one that deletes it. Content in a group thread needs a tombstone, so deleting a
   member does not delete the group's history.
+  Deleting an account also burns its client ids in `claim_ledger`: each row stays, loses
+  its account and is marked burned, so the ids can never be claimed again and nothing
+  left points to the person (`20260101000005_ledger_burn.sql`).
 - **Private notes stay private from you too.** No admin screen reads them. If you ever
   need support access, it is an explicit, logged, time-boxed grant.
 
@@ -151,11 +154,54 @@ the statement succeeded and changed zero rows. Two consequences:
 - Everywhere else, the client must check the affected row count. "No error" does not mean
   "it worked" under RLS.
 
-Run the suite with:
+**3. Supabase's default grants make a forgotten RLS line a public write.** Every table
+created in `public` is granted insert, update, delete and truncate to `anon` (the public
+key, no sign-in), and every function is executable by it. The eight reference tables had
+RLS off, so anyone could delete every verse. Migration 3 fixed those eight; migration 4
+(`20260101000004_client_write_lockdown.sql`) removes the grants for every object, now
+and for objects created later. `backend/client_guard.sql` then checks every table, view
+and `SECURITY DEFINER` function in `public` on every run, before the suites, and fails
+the build if any:
 
-```
-psql -f backend/stub_auth.sql -f backend/schema.sql -f backend/rls_test.sql
-```
+- has RLS off;
+- can be written or truncated by `anon`, or truncated by `authenticated` (truncate
+  ignores RLS);
+- is a view that isn't `security_invoker`, or a materialized view or foreign table a
+  client can read (neither can carry RLS);
+- is a `SECURITY DEFINER` function `anon` can execute.
 
-`stub_auth.sql` stands in for what Supabase provides (`auth.users`, `auth.uid()`) so the
-schema runs on plain Postgres in CI. Against a real Supabase project, skip it.
+Anything that must be let through goes on the guard's allowlist with the reason. It's
+empty today. In CI, `stub_auth.sql` recreates Supabase's default grants, and checks it
+still does, so the guard sees what a real project would.
+
+**4. Anyone could make themselves someone's connection.** `is_connected()` trusts any
+row with status `accepted`, and either person could write that row. So anyone signed in
+could read a stranger's circle notes, profile and reposts. Migration 6
+(`20260101000006_connections_not_self_accepted.sql`) leaves clients able to ask, block
+and remove, but not accept; accepting belongs to the circles work, below.
+
+Run everything with `npm run test:rls` (bare Postgres, as CI does) or `npm run db:test`
+(the local Supabase stack). `scripts/rls-test.sh` applies `stub_auth.sql` (which stands
+in for `auth.users`, `auth.uid()` and Supabase's default grants) and the migrations, runs
+the client guard, then the base suite and every file in `supabase/tests`.
+
+## Before circles ship (required)
+
+Notes have been marked "My circle" since step 5, and step 7 copies them to the server
+as marked. Every one of those choices was made before the person had a circle to show
+anything to. So turning circles on must not make any of them visible by itself.
+
+The circles work is not done until:
+
+1. **Accepting is a server function, and only the person asked can call it.** Today no
+   client can make a connection accepted (migration 6). The checks in
+   `supabase/tests/step7_no_self_connection_test.sql` will fail when that changes;
+   change them as part of this work, not before.
+2. **Existing circle notes are confirmed before any become visible.** When someone's
+   first connection is about to be accepted, they're shown every note they marked "My
+   circle" before that moment. Then they choose which, if any, connections may see. Until
+   they've confirmed, those notes stay visible only to them, enforced by the notes read
+   policy rather than by the app. Notes marked after circles exist don't need this: the
+   choice was made with a circle to show them to.
+3. **A check proves it:** a circle note made before circles shipped, plus an accepted
+   connection with no confirmation, means the connection reads nothing.
