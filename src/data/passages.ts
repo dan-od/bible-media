@@ -53,7 +53,7 @@ export const PASSAGES: Passage[] = [
         },
         {
           label: 'How it moves',
-          body: 'From distress in verses 9–13, to trust in verse 14, “But I trusted in thee,” to this closing encouragement.',
+          body: 'From distress in verses 9–13, to trust in verse 14, “But I trusted in thee,” to this closing call to courage.',
         },
         {
           label: 'Jesus quotes it',

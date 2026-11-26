@@ -40,6 +40,12 @@ describe('parseProfile', () => {
     const p = parseProfile(JSON.stringify({ situations: ['Money', 3, null, 'Grief'] }), [...AVAILABLE]);
     expect(p.situations).toEqual(['Money', 'Grief']);
   });
+
+  it('keeps search history on by default and only an explicit false turns it off', () => {
+    expect(parseProfile(JSON.stringify({}), [...AVAILABLE]).keepSearchHistory).toBe(true);
+    expect(parseProfile(JSON.stringify({ keepSearchHistory: 'nope' }), [...AVAILABLE]).keepSearchHistory).toBe(true);
+    expect(parseProfile(JSON.stringify({ keepSearchHistory: false }), [...AVAILABLE]).keepSearchHistory).toBe(false);
+  });
 });
 
 describe('effectiveSituations', () => {
@@ -50,6 +56,23 @@ describe('effectiveSituations', () => {
       tunedThemes: ['courage', 'Grief'],
     };
     expect(effectiveSituations(profile)).toEqual(['New job', 'Courage', 'Grief']);
+  });
+
+  // The heart step accepts "a few words" instead of chips. Those words were
+  // stored and never read; now they reach themes the same way search does.
+  it('reads the free-text answer through the same theme matching as search', () => {
+    const profile: Profile = { ...DEFAULT_PROFILE, situations: [], freeText: 'I’m worried about money' };
+    expect(effectiveSituations(profile)).toEqual(['Worry', 'Money']);
+  });
+
+  it('puts chips and tuned themes before free-text themes, without duplicates', () => {
+    const profile: Profile = {
+      ...DEFAULT_PROFILE,
+      situations: ['Money'],
+      tunedThemes: ['Grief'],
+      freeText: 'so tired and worried about money',
+    };
+    expect(effectiveSituations(profile)).toEqual(['Money', 'Grief', 'Weariness', 'Worry']);
   });
 });
 

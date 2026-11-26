@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { NoteSheet } from '@/components/feed/NoteSheet';
@@ -10,6 +10,7 @@ import { effectiveSituations } from '@/data/profile';
 import { getPassageById, renderPassage } from '@/data/verseStore';
 import { useCollection } from '@/hooks/use-collection';
 import { useProfile } from '@/hooks/use-profile';
+import { useSheetLayout } from '@/hooks/use-sheet-layout';
 import { useTheme } from '@/hooks/use-theme';
 
 /** A friendly, score-free "when" — never a streak or a count. */
@@ -26,8 +27,9 @@ function whenLabel(ms: number): string {
 
 export default function YouScreen() {
   const insets = useSafeAreaInsets();
-  const { colors } = useTheme();
-  const { profile } = useProfile();
+  const { colors, semantic } = useTheme();
+  const sheetFit = useSheetLayout();
+  const { profile, update } = useProfile();
   const { collection, setNote } = useCollection();
 
   const [editing, setEditing] = useState<string | null>(null);
@@ -141,6 +143,28 @@ export default function YouScreen() {
             )}
           </>
         )}
+
+        {/* Settings — kept minimal for this step: the search-history switch.
+            Off means new searches aren't written (not merely hidden). */}
+        <View style={styles.section}>
+          <Text style={[styles.caps, { color: colors.textSecondary }]}>Settings</Text>
+          <View style={[styles.settingRow, { borderTopColor: colors.hairline }]}>
+            <View style={styles.settingText}>
+              <Text style={[styles.settingLabel, { color: colors.text }]}>Keep search history</Text>
+              <ThemedText variant="body" muted style={styles.settingDetail}>
+                Recent searches are saved on this device to tune your feed. Off means nothing new is
+                written.
+              </ThemedText>
+            </View>
+            <Switch
+              value={profile.keepSearchHistory}
+              onValueChange={(v) => update({ keepSearchHistory: v })}
+              trackColor={{ true: semantic.finished, false: colors.hairline }}
+              thumbColor={colors.background}
+              accessibilityLabel="Keep search history"
+            />
+          </View>
+        </View>
       </ScrollView>
 
       {editing && editingPassage && (
@@ -149,6 +173,7 @@ export default function YouScreen() {
           verseText={renderPassage(editingPassage, profile.translationId)
             .verses.map((v) => v.text)
             .join(' ')}
+          layout={sheetFit}
           initialBody={getNote(collection, editing)?.body ?? ''}
           initialVisibility={getNote(collection, editing)?.visibility ?? 'private'}
           onSave={(body, visibility) => {
@@ -183,4 +208,15 @@ const styles = StyleSheet.create({
   empty: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: Spacing.three, paddingHorizontal: Spacing.four },
   emptyTitle: { fontSize: 28, lineHeight: 34, textAlign: 'center' },
   emptyBody: { fontSize: 15, lineHeight: 22, textAlign: 'center' },
+  settingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.four,
+    paddingTop: Spacing.three,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    minHeight: MinTapTarget,
+  },
+  settingText: { flex: 1, gap: 4 },
+  settingLabel: { fontFamily: Fonts.sansMedium, fontSize: 16 },
+  settingDetail: { fontSize: 13, lineHeight: 19 },
 });

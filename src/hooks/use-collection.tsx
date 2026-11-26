@@ -7,6 +7,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 
 import {
   EMPTY_COLLECTION,
+  recordEngagement as recordEngagementIn,
   setNote as setNoteIn,
   toggleSave as toggleSaveIn,
   toggleStar as toggleStarIn,
@@ -21,6 +22,8 @@ interface CollectionContextValue {
   toggleStar: (id: string) => void;
   toggleSave: (id: string) => void;
   setNote: (id: string, body: string, visibility: NoteVisibility) => void;
+  /** Record themes the reader engaged with (opening a search result). */
+  recordEngagement: (themes: string[]) => void;
 }
 
 const CollectionContext = createContext<CollectionContextValue | null>(null);
@@ -53,10 +56,14 @@ export function CollectionProvider({ children }: { children: React.ReactNode }) 
       setCollection((c) => setNoteIn(c, id, body, visibility)),
     [],
   );
+  const recordEngagement = useCallback(
+    (themes: string[]) => setCollection((c) => recordEngagementIn(c, themes)),
+    [],
+  );
 
   const value = useMemo(
-    () => ({ collection, ready, toggleStar, toggleSave, setNote }),
-    [collection, ready, toggleStar, toggleSave, setNote],
+    () => ({ collection, ready, toggleStar, toggleSave, setNote, recordEngagement }),
+    [collection, ready, toggleStar, toggleSave, setNote, recordEngagement],
   );
 
   return <CollectionContext.Provider value={value}>{children}</CollectionContext.Provider>;

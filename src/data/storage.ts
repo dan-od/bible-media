@@ -7,10 +7,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { EMPTY_COLLECTION, parseCollection, type Collection } from './collection';
 import { DEFAULT_PROFILE, parseProfile, type Profile } from './profile';
+import { EMPTY_HISTORY, parseHistory, type SearchHistory } from './search-history';
 import { getAvailableTranslations, getPassages } from './verseStore';
 
 const PROFILE_KEY = 'profile.v1';
 const COLLECTION_KEY = 'collection.v1';
+const SEARCH_HISTORY_KEY = 'searchHistory.v1';
 
 export async function loadProfile(): Promise<Profile> {
   try {
@@ -44,4 +46,21 @@ export async function saveCollection(collection: Collection): Promise<void> {
 
 export async function clearCollection(): Promise<void> {
   await AsyncStorage.removeItem(COLLECTION_KEY);
+}
+
+export async function loadSearchHistory(): Promise<SearchHistory> {
+  try {
+    const raw = await AsyncStorage.getItem(SEARCH_HISTORY_KEY);
+    return parseHistory(raw);
+  } catch {
+    return EMPTY_HISTORY;
+  }
+}
+
+export async function saveSearchHistory(history: SearchHistory): Promise<void> {
+  await AsyncStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(history));
+}
+
+export async function clearSearchHistory(): Promise<void> {
+  await AsyncStorage.removeItem(SEARCH_HISTORY_KEY);
 }

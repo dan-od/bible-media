@@ -7,6 +7,7 @@ import { Screen } from '@/components/themed';
 import { Button } from '@/components/ui/Button';
 import { Fonts, Spacing } from '@/constants/theme';
 import { BIBLE_LEVELS } from '@/data/profile';
+import { resolveThemes } from '@/data/search';
 import { getTranslation } from '@/data/verseStore';
 import { useProfile } from '@/hooks/use-profile';
 import { useTheme } from '@/hooks/use-theme';
@@ -18,7 +19,10 @@ export default function Done() {
 
   const levelTitle = BIBLE_LEVELS.find((l) => l.id === profile.level)?.title.toLowerCase() ?? '';
   const translationName = getTranslation(profile.translationId)?.name ?? '';
-  const situationText = profile.situations.length ? profile.situations.join(' and ').toLowerCase() : 'a fresh start';
+  // The chips, or — when the reader answered in their own words instead — the
+  // themes those words reach (the same ones that now shape their feed).
+  const named = profile.situations.length ? profile.situations : resolveThemes(profile.freeText);
+  const situationText = named.length ? named.join(' and ').toLowerCase() : 'a fresh start';
   const summary = `${situationText}, ${levelTitle}, ${translationName}.`;
 
   const openFeed = () => {
